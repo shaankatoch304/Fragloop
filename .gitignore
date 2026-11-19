@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.spec.bak
+ffmpeg.exe
+ffprobe.exe
+*.log
+.venv/
+venv/
+.vscode/
+.idea/
