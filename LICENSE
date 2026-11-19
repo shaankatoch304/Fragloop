@@ -2,10 +2,13 @@ Copyright (c) 2026 Fragloop
 
 All rights reserved.
 
-This source code is published for reference and transparency. No permission is
-granted to copy, modify, merge, publish, distribute, sublicense, or sell copies
-of this software, in whole or in part, without prior written permission from the
-copyright holder.
+Source code: no permission is granted to copy, modify, merge, publish,
+distribute, sublicense, or sell the source code, in whole or in part, without
+prior written permission from the copyright holder.
+
+Compiled builds: you may redistribute unmodified compiled binaries free of
+charge for personal, non-commercial use. You may not sell them, bundle them with
+paid products, or distribute modified builds.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS

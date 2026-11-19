@@ -3,6 +3,7 @@
 ## 0.1.0 - 2026-11-20
 
 - Initial public release.
+- Windows installer and portable zip.
 - GPU-direct capture (`ddagrab` -> `h264_nvenc`), constant 120 fps.
 - Five-minute replay buffer with hotkey save.
 - WASAPI loopback audio that follows the Windows default output device.

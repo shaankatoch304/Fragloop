@@ -8,6 +8,18 @@ Fragloop records your display at a constant 120 fps straight from the GPU and
 keeps the last five minutes in a rolling buffer. Press `Alt+P` and the buffer is
 saved as an MP4 — no need to have been recording. `Alt+G` records manually.
 
+## Download
+
+Prebuilt Windows builds are on the [Releases](https://github.com/shaankatoch304/Fragloop/releases) page.
+
+- **Setup (recommended)** — `Fragloop-0.1.0-win64-setup.exe`: per-user install,
+  Start menu shortcut, optional autostart.
+- **Portable** — `Fragloop-0.1.0-win64-portable.zip`: extract anywhere and run
+  `Fragloop.exe`.
+
+The builds are unsigned, so SmartScreen may show "Windows protected your PC".
+Choose **More info → Run anyway**.
+
 ## Features
 
 - **Direct GPU pipeline** — Desktop Duplication (`ddagrab`) feeds `h264_nvenc`
@@ -25,7 +37,8 @@ saved as an MP4 — no need to have been recording. `Alt+G` records manually.
 
 - Windows 10/11, 64-bit
 - NVIDIA GPU with NVENC (Turing or newer recommended)
-- ffmpeg 7 or newer: `ffmpeg.exe` and `ffprobe.exe` next to `Fragloop.exe`
+- Release builds include ffmpeg. Source builds need ffmpeg 7 or newer
+  (`ffmpeg.exe` and `ffprobe.exe`) next to `Fragloop.exe`
 - Free disk space: a five-minute replay is ~7.5 GB at the default 200 Mbit/s,
   and saving needs room for the temporary concat as well (~2x).
 
@@ -64,13 +77,20 @@ pip install -r requirements.txt
 pip install -r requirements-dev.txt
 
 # Put ffmpeg.exe and ffprobe.exe in the project root first.
-pyinstaller --noconfirm --windowed --name Fragloop --icon icon.ico `
-  --hidden-import pystray._win32 app.py
+python -m PyInstaller --noconfirm Fragloop.spec
 Copy-Item ffmpeg.exe,ffprobe.exe dist\Fragloop\
 ```
 
 The build lands in `dist\Fragloop`. Run it from there; the app expects
 `ffmpeg.exe` and `ffprobe.exe` beside the executable.
+
+Build the installer and portable zip (needs Inno Setup 6):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_release.ps1
+```
+
+Both release files are written to `release\`.
 
 Run from source instead:
 
@@ -109,6 +129,9 @@ app.py            entry point; window mode spawns the engine
 recorder.py       engine: hotkeys, buffer, GPU capture, audio, saves
 studio.py         PySide6 clip library window
 Fragloop.spec     PyInstaller build definition
+version_info.txt  Windows version resource for Fragloop.exe
+installer/        Inno Setup script
+scripts/          release build script
 icon.ico          application icon
 docs/             README screenshot
 selftest.py       headless recording smoke test
@@ -118,7 +141,8 @@ sendkey.py        synthetic hotkey helper
 
 ## License
 
-Source is published for reference; all rights reserved. See [LICENSE](LICENSE).
+Source is closed; all rights reserved. Compiled builds may be shared free of
+charge for personal use. See [LICENSE](LICENSE).
 
 ffmpeg is not included in this repository. If you redistribute a build, follow
 the license of the ffmpeg binaries you ship. Fragloop is not affiliated with
