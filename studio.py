@@ -51,7 +51,7 @@ QLabel#clipName { color: #e6e9f0; font-family: "Segoe UI"; font-size: 13px; font
 QLabel#clipMeta { color: #79829a; font-family: "Segoe UI"; font-size: 11px; }
 QLabel#emptyTitle { color: #4f586b; font-family: "Segoe UI"; font-size: 15px; font-weight: 600; }
 QLabel#emptyHint  { color: #3d4557; font-family: "Segoe UI"; font-size: 12px; }
-QLabel#version { color: #3d4557; font-family: "Segoe UI"; font-size: 11px; }
+QLabel#version { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; }
 QScrollBar:vertical { background: transparent; width: 8px; }
 QScrollBar::handle:vertical { background: #262d39; border-radius: 4px; min-height: 30px; }
 QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
