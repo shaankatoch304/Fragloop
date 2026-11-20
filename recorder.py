@@ -648,10 +648,10 @@ def _save_replay():
         dur = _probe_duration(tmp)
         _log(f"replay save: concat {dur:.1f}s")
         if dur > 1:
-            # The newest closed segment's mtime is when its last frame hit
-            # disk. Segment 0's ctime includes ffmpeg's startup, which jittered
-            # the audio alignment by a few hundred ms between sessions.
-            wav = _buffer_audio_tail(dur, chosen[-1].stat().st_mtime)
+            # The segment's mtime is its close time; the muxer and loopback
+            # capture both land ~0.1 s after the last frame. Add it back the
+            # same way the manual path does, or replay audio plays late.
+            wav = _buffer_audio_tail(dur, chosen[-1].stat().st_mtime + 0.105)
         cmd = [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
                "-i", str(tmp)]
         if wav:
@@ -785,7 +785,7 @@ def _stop():
         # ffmpeg needs ~0.3 s to start, and anchoring to the press made
         # manual clips play 0.3 s late. Matroska's close then lands ~0.1 s
         # after its last mtime update, so add that back (measured with a
-        # flash+beep clock; replay segments don't need it).
+        # callback-timed beep); replay saves need the same correction.
         end_mtime = _video.stat().st_mtime + 0.105
         _wav = _buffer_audio_tail(vdur, end_mtime, manual=True) if vdur > 1 else None
         _audio_ok = _wav is not None

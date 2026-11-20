@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Fix replay saves playing audio ~70 ms late by using the same close-time
+  correction as manual recordings.
+
 ## 0.1.0 - 2026-11-20
 
 - Initial public release.
