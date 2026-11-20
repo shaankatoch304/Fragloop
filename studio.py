@@ -365,6 +365,17 @@ class Studio(QMainWindow):
 
 
 def main():
+    # One window only: a second launch focuses the open one instead of
+    # adding a duplicate taskbar entry.
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateMutexW(None, False, "FragloopStudio")
+    if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
+        hwnd = ctypes.windll.user32.FindWindowW(None, "Fragloop Studio")
+        if hwnd:
+            ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+            ctypes.windll.user32.SetForegroundWindow(hwnd)
+        return
+
     app = QApplication([])
     app.setApplicationName("Fragloop")
     app.setStyleSheet(QSS)

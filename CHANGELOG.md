@@ -5,6 +5,7 @@
 - Fix replay saves playing audio ~70 ms late by using the same close-time
   correction as manual recordings.
 - Show the app version in the bottom-right corner of the window.
+- Prevent duplicate app windows when the exe is opened twice.
 
 ## 0.1.0 - 2026-11-20
 
