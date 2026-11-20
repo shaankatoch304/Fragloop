@@ -25,6 +25,7 @@ OUT_DIR = Path(os.environ["USERPROFILE"]) / "Videos" / "Captures"
 THUMB_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "thumbs"
 
 THUMB_W, THUMB_H = 148, 84
+APP_VERSION = "0.1.1"
 
 QSS = """
 QWidget#root { background: #0b0d11; }
@@ -50,6 +51,7 @@ QLabel#clipName { color: #e6e9f0; font-family: "Segoe UI"; font-size: 13px; font
 QLabel#clipMeta { color: #79829a; font-family: "Segoe UI"; font-size: 11px; }
 QLabel#emptyTitle { color: #4f586b; font-family: "Segoe UI"; font-size: 15px; font-weight: 600; }
 QLabel#emptyHint  { color: #3d4557; font-family: "Segoe UI"; font-size: 12px; }
+QLabel#version { color: #3d4557; font-family: "Segoe UI"; font-size: 11px; }
 QScrollBar:vertical { background: transparent; width: 8px; }
 QScrollBar::handle:vertical { background: #262d39; border-radius: 4px; min-height: 30px; }
 QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
@@ -321,6 +323,13 @@ class Studio(QMainWindow):
         el.addWidget(h)
         el.addStretch(1)
         outer.addWidget(self.empty, 1)
+
+        foot = QHBoxLayout()
+        foot.addStretch(1)
+        ver = QLabel(f"v{APP_VERSION}")
+        ver.setObjectName("version")
+        foot.addWidget(ver)
+        outer.addLayout(foot)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh)

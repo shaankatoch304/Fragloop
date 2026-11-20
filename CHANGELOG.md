@@ -1,9 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 - 2026-11-21
 
 - Fix replay saves playing audio ~70 ms late by using the same close-time
   correction as manual recordings.
+- Show the app version in the bottom-right corner of the window.
 
 ## 0.1.0 - 2026-11-20
 
