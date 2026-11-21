@@ -68,6 +68,11 @@ AUDIO_SYNC_BY_DEVICE = {"JBL": -0.084, "Realtek": -0.025}
 # Manual (Alt+G) files close differently; Bluetooth needed its own value.
 AUDIO_MANUAL_SYNC_BY_DEVICE = {"JBL": 0.088}
 AUDIO_SYNC_SECONDS = -0.025    # fallback when the endpoint is unknown
+# The file mtime is when the muxer last wrote, which is before the encoder
+# has flushed its queue. Measured with a flash + 1 kHz tone: HEVC's queue
+# trails a 2 s segment by ~0.03 s but a final file close by ~0.37 s.
+REPLAY_MTIME_LAG = 0.025
+MANUAL_MTIME_LAG = 0.365
 
 LOG.parent.mkdir(parents=True, exist_ok=True)
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -657,10 +662,10 @@ def _save_replay():
         dur = _probe_duration(tmp)
         _log(f"replay save: concat {dur:.1f}s")
         if dur > 1:
-            # The segment's mtime is its close time; the muxer and loopback
-            # capture both land ~0.1 s after the last frame. Add it back the
-            # same way the manual path does, or replay audio plays late.
-            wav = _buffer_audio_tail(dur, chosen[-1].stat().st_mtime + 0.105)
+            # The segment mtime trails its last frame by the encoder queue.
+            # Add that lag back or replay audio plays early.
+            wav = _buffer_audio_tail(dur, chosen[-1].stat().st_mtime
+                                     + REPLAY_MTIME_LAG)
         cmd = [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
                "-i", str(tmp)]
         if wav:
@@ -794,10 +799,9 @@ def _stop():
         vdur = _probe_duration(_video)
         # Anchor to when ffmpeg closed the file, not the hotkey press:
         # ffmpeg needs ~0.3 s to start, and anchoring to the press made
-        # manual clips play 0.3 s late. Matroska's close then lands ~0.1 s
-        # after its last mtime update, so add that back (measured with a
-        # callback-timed beep); replay saves need the same correction.
-        end_mtime = _video.stat().st_mtime + 0.105
+        # manual clips play 0.3 s late. The close also flushes the encoder
+        # queue, so add its measured lag back before cutting the audio tail.
+        end_mtime = _video.stat().st_mtime + MANUAL_MTIME_LAG
         _wav = _buffer_audio_tail(vdur, end_mtime, manual=True) if vdur > 1 else None
         _audio_ok = _wav is not None
     cmd = [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",

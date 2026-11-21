@@ -6,6 +6,9 @@
   under 5 GB instead of ~10 GB. Existing H.264 clips are unaffected.
 - Rotate the buffer's PCM audio during silent stretches too, so one silent
   file cannot grow for hours and inflate the buffer folder.
+- Retune the audio close-time anchors for HEVC: replay saves were ~80 ms
+  early and buffer-backed manual clips ~250 ms late. Both now measure
+  within ~30 ms of the video.
 
 ## 0.1.1 - 2026-11-21
 
