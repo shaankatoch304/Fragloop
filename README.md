@@ -55,14 +55,14 @@ Tested on Windows 11, RTX 5070 Ti Laptop GPU, 2560x1600 @ 240 Hz.
 | `Alt+P` / `Ctrl+Alt+P` | Save the last five minutes |
 
 Clips are written to `Videos\Captures`. Settings live at the top of
-`recorder.py` (`RECORD_FPS`, `CQ`, `VIDEO_CAP`, `REPLAY_SECONDS`,
+`recorder.py` (`RECORD_FPS`, `VIDEO_BITRATE`, `VIDEO_MAXRATE`, `REPLAY_SECONDS`,
 `SEGMENT_SECONDS`).
 
 ## How it works
 
 1. `ddagrab` captures the display on the GPU and duplicates frames to a
    constant 120 fps.
-2. `hevc_nvenc` encodes 10-bit HEVC at CQ 14 into two-second Matroska
+2. `hevc_nvenc` encodes 10-bit HEVC at an 80 Mbit/s average (110 Mbit/s peaks) into two-second Matroska
    segments tagged with forced IDR frames, so the replay buffer can be
    concatenated without re-encoding.
 3. WASAPI loopback writes 48 kHz stereo PCM into rotating five-minute chunks,

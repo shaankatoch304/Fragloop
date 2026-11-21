@@ -48,8 +48,8 @@ def _display_hz():
 
 RECORD_FPS = 120               # constant output rate; VFR 50-240 fps footage
                                # judders in players, CFR 120 plays smooth
-CQ = "14"                      # quality target; lower = better and bigger
-VIDEO_CAP = "90M"              # peak video rate; 7 min ≈ 4.7 GB with audio
+VIDEO_BITRATE = "80M"          # average video rate; 7 min ≈ 4.2 GB with audio
+VIDEO_MAXRATE = "110M"         # peaks for complex motion; average stays ~80
 CODEC = "hevc_nvenc"           # 10-bit HEVC: ~2x smaller than H.264 at the
                                # same quality, but needs the HEVC extension
 HOTKEY_VK = 0x47               # G
@@ -490,10 +490,10 @@ def _buffer_supervisor():
             # software fps → NVENC round-trip (2 GB/s through RAM) that
             # made the encoder fall seconds behind during real gameplay.
             f"ddagrab=output_idx=0:framerate={RECORD_FPS}:dup_frames=true",
-            "-c:v", CODEC, "-preset", "p5", "-tune", "hq",
+            "-c:v", CODEC, "-preset", "p1", "-tune", "hq",
             "-profile:v", "main10", "-highbitdepth", "1",
-            "-rc", "vbr", "-cq", CQ, "-b:v", "0",
-            "-maxrate", VIDEO_CAP, "-bufsize", "180M",
+            "-rc", "vbr", "-b:v", VIDEO_BITRATE,
+            "-maxrate", VIDEO_MAXRATE, "-bufsize", "220M",
             "-bf", "0",
             # Keyframe every 2 s of media time, not every 60 frames: at
             # 150-240 fps a frame-count GOP is 0.25-0.4 s and spends a big
@@ -733,10 +733,10 @@ def _start():
         "-f", "lavfi", "-i",
         # Same on-GPU pipeline as the replay buffer; see _buffer_supervisor.
         f"ddagrab=output_idx=0:framerate={RECORD_FPS}:dup_frames=true",
-        "-c:v", CODEC, "-preset", "p5", "-tune", "hq",
+        "-c:v", CODEC, "-preset", "p1", "-tune", "hq",
         "-profile:v", "main10", "-highbitdepth", "1",
-        "-rc", "vbr", "-cq", CQ, "-b:v", "0",
-        "-maxrate", VIDEO_CAP, "-bufsize", "180M",
+        "-rc", "vbr", "-b:v", VIDEO_BITRATE,
+        "-maxrate", VIDEO_MAXRATE, "-bufsize", "220M",
         "-bf", "0",
         "-g", str(RECORD_FPS * 2),
         "-forced-idr", "1",
