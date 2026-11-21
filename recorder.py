@@ -48,9 +48,10 @@ def _display_hz():
 
 RECORD_FPS = 120               # constant output rate; VFR 50-240 fps footage
                                # judders in players, CFR 120 plays smooth
-BITRATE = "200M"               # hardcoded video rate; ~1.5 GB per minute
-CODEC = "h264_nvenc"           # plays anywhere without the HEVC extension;
-                               # hevc_nvenc is ~40% smaller at the same quality
+CQ = "19"                      # quality target; lower = better and bigger
+VIDEO_CAP = "90M"              # peak video rate; 7 min ≈ 4.7 GB with audio
+CODEC = "hevc_nvenc"           # 10-bit HEVC: ~3x smaller than H.264 at the
+                               # same quality, but needs the HEVC extension
 HOTKEY_VK = 0x47               # G
 HOTKEY_MODS = 0x0001 | 0x4000  # Alt | MOD_NOREPEAT
 
@@ -352,6 +353,12 @@ def _buffer_audio_loop():
             time.sleep(0.05)
             with _buf_audio_lock:
                 _buf_audio_pad()
+                # WASAPI sends no callbacks while the endpoint is silent, so
+                # rotation cannot live only in the callback or one PCM file
+                # grows for the whole silent stretch.
+                if (_buf_audio_fh is not None and st["rate"] > 0
+                        and st["frames"] >= st["rate"] * AUDIO_ROTATE_SECONDS):
+                    _buf_audio_new_file()
                 try:
                     _buf_audio_fh.flush()
                 except Exception:
@@ -478,8 +485,10 @@ def _buffer_supervisor():
             # software fps → NVENC round-trip (2 GB/s through RAM) that
             # made the encoder fall seconds behind during real gameplay.
             f"ddagrab=output_idx=0:framerate={RECORD_FPS}:dup_frames=true",
-            "-c:v", CODEC, "-preset", "p1", "-tune", "hq",
-            "-rc", "vbr", "-b:v", BITRATE, "-maxrate", "250M", "-bufsize", "500M",
+            "-c:v", CODEC, "-preset", "p5", "-tune", "hq",
+            "-profile:v", "main10", "-highbitdepth", "1",
+            "-rc", "vbr", "-cq", CQ, "-b:v", "0",
+            "-maxrate", VIDEO_CAP, "-bufsize", "180M",
             "-bf", "0",
             # Keyframe every 2 s of media time, not every 60 frames: at
             # 150-240 fps a frame-count GOP is 0.25-0.4 s and spends a big
@@ -657,7 +666,7 @@ def _save_replay():
         if wav:
             cmd += ["-i", str(wav), "-map", "0:v", "-map", "1:a",
                     "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-shortest"]
-        cmd += ["-c:v", "copy", "-fps_mode", "passthrough",
+        cmd += ["-c:v", "copy", "-tag:v", "hvc1", "-fps_mode", "passthrough",
                 "-movflags", "+faststart", str(out)]
         r = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
         if r.returncode == 0:
@@ -719,8 +728,10 @@ def _start():
         "-f", "lavfi", "-i",
         # Same on-GPU pipeline as the replay buffer; see _buffer_supervisor.
         f"ddagrab=output_idx=0:framerate={RECORD_FPS}:dup_frames=true",
-        "-c:v", CODEC, "-preset", "p1", "-tune", "hq",
-        "-rc", "vbr", "-b:v", BITRATE, "-maxrate", "250M", "-bufsize", "500M",
+        "-c:v", CODEC, "-preset", "p5", "-tune", "hq",
+        "-profile:v", "main10", "-highbitdepth", "1",
+        "-rc", "vbr", "-cq", CQ, "-b:v", "0",
+        "-maxrate", VIDEO_CAP, "-bufsize", "180M",
         "-bf", "0",
         "-g", str(RECORD_FPS * 2),
         "-forced-idr", "1",
@@ -794,7 +805,7 @@ def _stop():
     if _audio_ok and _wav and _wav.exists() and _wav.stat().st_size > 44:
         cmd += ["-i", str(_wav), "-map", "0:v", "-map", "1:a",
                 "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-shortest"]
-    cmd += ["-c:v", "copy", "-fps_mode", "passthrough",
+    cmd += ["-c:v", "copy", "-tag:v", "hvc1", "-fps_mode", "passthrough",
             "-movflags", "+faststart",
             str(_final)]
     r = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)

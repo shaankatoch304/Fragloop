@@ -22,7 +22,7 @@ Choose **More info → Run anyway**.
 
 ## Features
 
-- **Direct GPU pipeline** — Desktop Duplication (`ddagrab`) feeds `h264_nvenc`
+- **Direct GPU pipeline** — Desktop Duplication (`ddagrab`) feeds `hevc_nvenc`
   without a CPU frame copy, so fast games stay smooth.
 - **Constant 120 fps** — CFR output avoids the judder VFR capture produces in
   players, even on a 240 Hz panel.
@@ -31,7 +31,8 @@ Choose **More info → Run anyway**.
   you change the Windows default output device.
 - **Native window and tray** — clip library with thumbnails, hotkeys that work
   while a game has focus.
-- **MP4 (H.264 + AAC)** — plays anywhere without extra codecs.
+- **MP4 (10-bit HEVC + AAC)** — roughly a third of the H.264 size at the same
+  quality. Windows needs the free HEVC Video Extension (or VLC/MPC) to play it.
 
 ## Requirements
 
@@ -39,8 +40,10 @@ Choose **More info → Run anyway**.
 - NVIDIA GPU with NVENC (Turing or newer recommended)
 - Release builds include ffmpeg. Source builds need ffmpeg 7 or newer
   (`ffmpeg.exe` and `ffprobe.exe`) next to `Fragloop.exe`
-- Free disk space: a five-minute replay is ~7.5 GB at the default 200 Mbit/s,
-  and saving needs room for the temporary concat as well (~2x).
+- Free disk space: the replay buffer uses up to ~4 GB, a saved five-minute
+  replay is ~2.3 GB typical (~3.4 GB at the cap), and a seven-minute manual
+  clip stays under 5 GB. Saving needs room for the temporary concat as well
+  (~2x briefly).
 
 Tested on Windows 11, RTX 5070 Ti Laptop GPU, 2560x1600 @ 240 Hz.
 
@@ -52,15 +55,16 @@ Tested on Windows 11, RTX 5070 Ti Laptop GPU, 2560x1600 @ 240 Hz.
 | `Alt+P` / `Ctrl+Alt+P` | Save the last five minutes |
 
 Clips are written to `Videos\Captures`. Settings live at the top of
-`recorder.py` (`RECORD_FPS`, `BITRATE`, `REPLAY_SECONDS`, `SEGMENT_SECONDS`).
+`recorder.py` (`RECORD_FPS`, `CQ`, `VIDEO_CAP`, `REPLAY_SECONDS`,
+`SEGMENT_SECONDS`).
 
 ## How it works
 
 1. `ddagrab` captures the display on the GPU and duplicates frames to a
    constant 120 fps.
-2. `h264_nvenc` encodes directly into two-second Matroska segments tagged with
-   forced IDR frames, so the replay buffer can be concatenated without
-   re-encoding.
+2. `hevc_nvenc` encodes 10-bit HEVC at CQ 19 into two-second Matroska
+   segments tagged with forced IDR frames, so the replay buffer can be
+   concatenated without re-encoding.
 3. WASAPI loopback writes 48 kHz stereo PCM into rotating five-minute chunks,
    padded against the wall clock so silence does not shift the timeline.
 4. A replay save concatenates the newest 151 segments, trims the matching audio
@@ -119,7 +123,7 @@ change `HOTKEY_VK` in `recorder.py`.
 The usual causes are low disk space, a missing/broken ffmpeg, or another process
 holding an NVENC session.
 
-**No video encoder.** Fragloop uses `h264_nvenc` and has no software fallback.
+**No video encoder.** Fragloop uses `hevc_nvenc` and has no software fallback.
 Update the NVIDIA driver if the encoder is unavailable.
 
 ## Project layout

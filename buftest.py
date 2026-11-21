@@ -16,11 +16,14 @@ time.sleep(17)
 segs = sorted(recorder.BUFFER_DIR.glob("buf_*.mkv"))
 print("segments at save time:")
 for p in segs:
-    d = subprocess.run([str(recorder.FFPROBE), "-v", "error", "-show_entries",
-                        "format=duration", "-of", "csv=p=0", str(p)],
-                       capture_output=True, text=True).stdout.strip()
-    print(f"  {p.name} {p.stat().st_size:>10} B  {d}s  "
-          f"age {time.time() - p.stat().st_mtime:.1f}s")
+    try:
+        d = subprocess.run([str(recorder.FFPROBE), "-v", "error", "-show_entries",
+                            "format=duration", "-of", "csv=p=0", str(p)],
+                           capture_output=True, text=True).stdout.strip()
+        print(f"  {p.name} {p.stat().st_size:>10} B  {d}s  "
+              f"age {time.time() - p.stat().st_mtime:.1f}s")
+    except FileNotFoundError:
+        print(f"  {p.name} (pruned while listing)")
 
 recorder._buffer_save()
 time.sleep(1)

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Encode 10-bit HEVC at CQ 19 with a 90 Mbit/s cap: a 7-minute clip now stays
+  under 5 GB instead of ~10 GB. Existing H.264 clips are unaffected.
+- Rotate the buffer's PCM audio during silent stretches too, so one silent
+  file cannot grow for hours and inflate the buffer folder.
+
 ## 0.1.1 - 2026-11-21
 
 - Fix replay saves playing audio ~70 ms late by using the same close-time
