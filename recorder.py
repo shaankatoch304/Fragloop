@@ -48,9 +48,9 @@ def _display_hz():
 
 RECORD_FPS = 120               # constant output rate; VFR 50-240 fps footage
                                # judders in players, CFR 120 plays smooth
-CQ = "19"                      # quality target; lower = better and bigger
+CQ = "14"                      # quality target; lower = better and bigger
 VIDEO_CAP = "90M"              # peak video rate; 7 min ≈ 4.7 GB with audio
-CODEC = "hevc_nvenc"           # 10-bit HEVC: ~3x smaller than H.264 at the
+CODEC = "hevc_nvenc"           # 10-bit HEVC: ~2x smaller than H.264 at the
                                # same quality, but needs the HEVC extension
 HOTKEY_VK = 0x47               # G
 HOTKEY_MODS = 0x0001 | 0x4000  # Alt | MOD_NOREPEAT

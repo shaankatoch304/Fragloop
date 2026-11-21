@@ -31,7 +31,7 @@ Choose **More info → Run anyway**.
   you change the Windows default output device.
 - **Native window and tray** — clip library with thumbnails, hotkeys that work
   while a game has focus.
-- **MP4 (10-bit HEVC + AAC)** — roughly a third of the H.264 size at the same
+- **MP4 (10-bit HEVC + AAC)** — roughly half the H.264 size at the same
   quality. Windows needs the free HEVC Video Extension (or VLC/MPC) to play it.
 
 ## Requirements
@@ -62,7 +62,7 @@ Clips are written to `Videos\Captures`. Settings live at the top of
 
 1. `ddagrab` captures the display on the GPU and duplicates frames to a
    constant 120 fps.
-2. `hevc_nvenc` encodes 10-bit HEVC at CQ 19 into two-second Matroska
+2. `hevc_nvenc` encodes 10-bit HEVC at CQ 14 into two-second Matroska
    segments tagged with forced IDR frames, so the replay buffer can be
    concatenated without re-encoding.
 3. WASAPI loopback writes 48 kHz stereo PCM into rotating five-minute chunks,

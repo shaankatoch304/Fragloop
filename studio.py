@@ -74,12 +74,14 @@ def duration(path):
 
 
 def thumbnail(path):
-    """First frame a second in, cached next to the app data."""
+    """A frame 10% in, cached next to the app data."""
     THUMB_DIR.mkdir(parents=True, exist_ok=True)
-    dest = THUMB_DIR / f"{path.stem}_{int(path.stat().st_mtime)}.png"
+    dest = THUMB_DIR / f"{path.stem}_{int(path.stat().st_mtime)}_v2.png"
     if not dest.exists():
+        dur = duration(path)
+        ss = max(1.0, dur * 0.1) if dur else 1.0
         _run([str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
-              "-ss", "1", "-i", str(path), "-frames:v", "1",
+              "-ss", f"{ss:.2f}", "-i", str(path), "-frames:v", "1",
               "-vf", f"scale={THUMB_W * 2}:-1", str(dest)])
     return dest if dest.exists() else None
 
