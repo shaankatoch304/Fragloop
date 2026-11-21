@@ -1,19 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 - 2026-11-22
 
 - Encode 10-bit HEVC at CQ 19 with a 90 Mbit/s cap: a 7-minute clip now stays
   under 5 GB instead of ~10 GB. Existing H.264 clips are unaffected.
+- Retune the audio close-time anchors for HEVC: replay saves now land within a
+  few milliseconds of the video and buffer-backed manual clips within ~30 ms.
 - Rotate the buffer's PCM audio during silent stretches too, so one silent
   file cannot grow for hours and inflate the buffer folder.
-- Retune the audio close-time anchors for HEVC: replay saves were ~80 ms
-  early and buffer-backed manual clips ~250 ms late. Both now measure
-  within ~30 ms of the video.
-
-## 0.1.1 - 2026-11-21
-
-- Fix replay saves playing audio ~70 ms late by using the same close-time
-  correction as manual recordings.
 - Show the app version in the bottom-right corner of the window.
 - Prevent duplicate app windows when the exe is opened twice.
 

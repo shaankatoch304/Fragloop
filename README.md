@@ -12,9 +12,9 @@ saved as an MP4 — no need to have been recording. `Alt+G` records manually.
 
 Prebuilt Windows builds are on the [Releases](https://github.com/shaankatoch304/Fragloop/releases) page.
 
-- **Setup (recommended)** — `Fragloop-0.1.0-win64-setup.exe`: per-user install,
+- **Setup (recommended)** — `Fragloop-0.1.1-win64-setup.exe`: per-user install,
   Start menu shortcut, optional autostart.
-- **Portable** — `Fragloop-0.1.0-win64-portable.zip`: extract anywhere and run
+- **Portable** — `Fragloop-0.1.1-win64-portable.zip`: extract anywhere and run
   `Fragloop.exe`.
 
 The builds are unsigned, so SmartScreen may show "Windows protected your PC".
