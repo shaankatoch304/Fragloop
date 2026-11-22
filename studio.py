@@ -6,6 +6,7 @@ double-click a clip to play it. The recorder engine is untouched.
 import ctypes
 import os
 import random
+import shutil
 import subprocess
 import sys
 import time
@@ -15,9 +16,11 @@ from PySide6.QtCore import (QByteArray, QEvent, QPointF, QRectF, QSettings,
                             QSize, Qt, QTimer)
 from PySide6.QtGui import (QColor, QIcon, QImage, QPainter, QPainterPath, QPen,
                            QPixmap)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QDialog, QFrame,
-                               QHBoxLayout, QLabel, QMainWindow, QPushButton,
-                               QScrollArea, QSlider, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
+                               QFrame, QHBoxLayout, QLabel, QListWidget,
+                               QListWidgetItem, QMainWindow, QMessageBox,
+                               QPushButton, QScrollArea, QSlider,
+                               QStackedWidget, QVBoxLayout, QWidget)
 
 APP_DIR = (Path(sys.executable).resolve().parent
            if getattr(sys, "frozen", False) else Path(__file__).resolve().parent)
@@ -25,6 +28,7 @@ FFMPEG = APP_DIR / "ffmpeg.exe"
 FFPROBE = APP_DIR / "ffprobe.exe"
 OUT_DIR = Path(os.environ["USERPROFILE"]) / "Videos" / "Captures"
 THUMB_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "thumbs"
+BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
 
 THUMB_W, THUMB_H = 148, 84
 APP_VERSION = "0.1.1"
@@ -45,12 +49,30 @@ QPushButton#winbtn, QPushButton#winbtnClose {
 }
 QPushButton#winbtn:hover { background: #1a1f29; color: #eef1f6; }
 QPushButton#winbtnClose:hover { background: #3a1a20; color: #ff8a95; }
-QWidget#settings {
-    background: #0e1117; border: 1px solid #222835; border-radius: 12px;
+QWidget#prefs {
+    background: #0b0d11; border: 1px solid #222835; border-radius: 12px;
 }
-QLabel#setTitle { color: #eef1f6; font-family: "Segoe UI"; font-size: 15px; font-weight: 600; }
-QLabel#setLabel { color: #aab2c4; font-family: "Segoe UI"; font-size: 12px; }
-QLabel#setValue { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; }
+QLabel#prefsTitle { color: #eef1f6; font-family: "Segoe UI"; font-size: 15px; font-weight: 600; }
+QLabel#pageTitle { color: #eef1f6; font-family: "Segoe UI"; font-size: 19px; font-weight: 600; }
+QLabel#section { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; font-weight: 600; }
+QLabel#rowLabel { color: #c3cad8; font-family: "Segoe UI"; font-size: 12px; }
+QLabel#rowValue { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; }
+QLabel#keycap {
+    color: #c3cad8; background: #14181f; border: 1px solid #222835;
+    border-radius: 5px; padding: 2px 7px;
+    font-family: "Consolas"; font-size: 11px;
+}
+QLabel#path { color: #79829a; font-family: "Segoe UI"; font-size: 11px; }
+QLabel#aboutName { color: #eef1f6; font-family: "Segoe UI"; font-size: 20px; font-weight: 600; }
+QLabel#aboutText { color: #aab2c4; font-family: "Segoe UI"; font-size: 12px; }
+QListWidget#nav {
+    background: transparent; border: none;
+    font-family: "Segoe UI"; font-size: 12px; outline: none;
+}
+QListWidget#nav::item { color: #aab2c4; padding: 8px 12px; border-radius: 7px; }
+QListWidget#nav::item:hover { background: #14181f; color: #eef1f6; }
+QListWidget#nav::item:selected { background: #1a1f29; color: #eef1f6; }
+QFrame#navline { background: #222835; border: none; }
 QPushButton#setOpen {
     color: #c3cad8; background: #14181f; border: 1px solid #222835;
     border-radius: 7px; padding: 5px 12px;
@@ -64,11 +86,33 @@ QSlider::sub-page:horizontal { background: #ff4d5e; border-radius: 2px; }
 QSlider::handle:horizontal {
     background: #e6e9f0; width: 12px; margin: -5px 0; border-radius: 6px;
 }
+QCheckBox {
+    color: #c3cad8; font-family: "Segoe UI"; font-size: 12px; spacing: 8px;
+}
 QCheckBox::indicator {
     width: 16px; height: 16px; border: 1px solid #2b3342;
     border-radius: 4px; background: #14181f;
 }
 QCheckBox::indicator:checked { background: #ff4d5e; border-color: #ff4d5e; }
+QComboBox {
+    color: #e6e9f0; background: #14181f; border: 1px solid #222835;
+    border-radius: 7px; padding: 5px 10px;
+    font-family: "Segoe UI"; font-size: 12px;
+}
+QComboBox:hover { border-color: #2b3342; }
+QComboBox::drop-down { border: none; width: 22px; }
+QComboBox QAbstractItemView {
+    background: #14181f; color: #e6e9f0; border: 1px solid #222835;
+    selection-background-color: #1a1f29; outline: none;
+}
+QMessageBox { background: #0e1117; }
+QMessageBox QLabel { color: #e6e9f0; font-family: "Segoe UI"; font-size: 12px; }
+QMessageBox QPushButton {
+    color: #c3cad8; background: #14181f; border: 1px solid #222835;
+    border-radius: 7px; padding: 6px 14px; min-width: 60px;
+    font-family: "Segoe UI"; font-size: 12px;
+}
+QMessageBox QPushButton:hover { background: #1a1f29; border-color: #2b3342; }
 QPushButton#del {
     background: transparent; border: 1px solid transparent;
     border-radius: 8px; padding: 0;
@@ -285,92 +329,329 @@ class Header(QWidget):
         self._grab = None
 
 
+class Combo(QComboBox):
+    """Dropdown with a chevron; the styled sub-control draws none."""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor("#8a93a6"), 1.5)
+        pen.setCapStyle(Qt.RoundCap)
+        p.setPen(pen)
+        x = self.width() - 16
+        y = self.height() / 2 - 2
+        p.drawLine(QPointF(x - 4, y), QPointF(x, y + 4))
+        p.drawLine(QPointF(x, y + 4), QPointF(x + 4, y))
+        p.end()
+
+
+class Check(QCheckBox):
+    """Checkbox with a drawn tick; the styled indicator is just a square."""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if not self.isChecked():
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor("#0b0d11"), 1.8)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        p.setPen(pen)
+        top = (self.height() - 16) / 2
+        p.drawLine(QPointF(4, top + 7), QPointF(6.5, top + 10))
+        p.drawLine(QPointF(6.5, top + 10), QPointF(11.5, top + 4))
+        p.end()
+
+
 class Settings(QDialog):
-    """Compact panel for the few things worth changing in the UI."""
+    """Preferences: a section rail on the left, settings on the right."""
 
     def __init__(self, studio):
         super().__init__(studio)
         self.studio = studio
+        self.setWindowTitle("Fragloop Preferences")
+        self.setWindowIcon(app_icon())
         self.setWindowFlag(Qt.FramelessWindowHint, True)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setWindowModality(Qt.NonModal)
-        self.setFixedSize(340, 190)
+        self.setFixedSize(760, 520)
 
         panel = QWidget()
-        panel.setObjectName("settings")
+        panel.setObjectName("prefs")
         panel.setAttribute(Qt.WA_StyledBackground, True)
         shell = QVBoxLayout(self)
         shell.setContentsMargins(0, 0, 0, 0)
         shell.addWidget(panel)
 
-        lay = QVBoxLayout(panel)
-        lay.setContentsMargins(18, 14, 18, 16)
-        lay.setSpacing(10)
+        outer = QVBoxLayout(panel)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
 
-        top = QHBoxLayout()
-        title = QLabel("Settings")
-        title.setObjectName("setTitle")
-        top.addWidget(title)
-        top.addStretch(1)
+        header = Header(self)
+        header.setFixedHeight(52)
+        head = QHBoxLayout(header)
+        head.setContentsMargins(22, 0, 14, 0)
+        head.setSpacing(9)
+        head.addWidget(Logo(20))
+        title = QLabel("Preferences")
+        title.setObjectName("prefsTitle")
+        head.addWidget(title)
+        head.addStretch(1)
         close = QPushButton("\u2715")
         close.setObjectName("winbtnClose")
-        close.setFixedSize(26, 24)
+        close.setFixedSize(30, 28)
         close.setToolTip("Close")
         close.setCursor(Qt.PointingHandCursor)
         close.clicked.connect(self.close)
-        top.addWidget(close)
-        lay.addLayout(top)
+        head.addWidget(close)
+        outer.addWidget(header)
 
-        folder = QHBoxLayout()
-        flabel = QLabel("Clips folder")
-        flabel.setObjectName("setLabel")
-        folder.addWidget(flabel)
-        folder.addStretch(1)
-        open_btn = QPushButton("Open")
-        open_btn.setObjectName("setOpen")
-        open_btn.setCursor(Qt.PointingHandCursor)
-        open_btn.clicked.connect(lambda: os.startfile(OUT_DIR))
-        folder.addWidget(open_btn)
-        lay.addLayout(folder)
+        line = QFrame()
+        line.setObjectName("divider")
+        line.setFixedHeight(1)
+        outer.addWidget(line)
 
-        line = QHBoxLayout()
-        olabel = QLabel("Panel opacity")
-        olabel.setObjectName("setLabel")
-        line.addWidget(olabel)
-        line.addStretch(1)
-        self.value = QLabel()
-        self.value.setObjectName("setValue")
-        line.addWidget(self.value)
-        lay.addLayout(line)
+        body = QHBoxLayout()
+        body.setContentsMargins(14, 12, 18, 0)
+        body.setSpacing(0)
 
-        self.slider = QSlider(Qt.Horizontal)
-        self.slider.setRange(75, 100)
-        self.slider.setValue(int(studio.settings.value("opacity", 95)))
-        self.value.setText(f"{self.slider.value()}%")
-        self.slider.valueChanged.connect(self.on_opacity)
-        lay.addWidget(self.slider)
+        self.nav = QListWidget()
+        self.nav.setObjectName("nav")
+        self.nav.setFixedWidth(168)
+        self.nav.setFocusPolicy(Qt.NoFocus)
+        self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.nav.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        for name in ("General", "Appearance", "Clips", "Storage", "About"):
+            item = QListWidgetItem(name)
+            item.setSizeHint(QSize(0, 36))
+            self.nav.addItem(item)
+        body.addWidget(self.nav)
 
-        grain = QHBoxLayout()
-        glabel = QLabel("Grain")
-        glabel.setObjectName("setLabel")
-        grain.addWidget(glabel)
-        grain.addStretch(1)
-        self.grain = QCheckBox()
-        self.grain.setAccessibleName("Grain")
-        self.grain.setChecked(studio.settings.value("grain", True, bool))
-        self.grain.toggled.connect(self.on_grain)
-        grain.addWidget(self.grain)
-        lay.addLayout(grain)
+        navline = QFrame()
+        navline.setObjectName("navline")
+        navline.setFixedWidth(1)
+        body.addWidget(navline)
+
+        self.stack = QStackedWidget()
+        body.addWidget(self.stack, 1)
+        outer.addLayout(body, 1)
+
+        foot = QHBoxLayout()
+        foot.setContentsMargins(0, 0, 22, 12)
+        foot.addStretch(1)
+        hint = QLabel("Changes save automatically")
+        hint.setObjectName("rowValue")
+        foot.addWidget(hint)
+        outer.addLayout(foot)
+
+        for page in (self.general_page(), self.appearance_page(),
+                     self.clips_page(), self.storage_page(),
+                     self.about_page()):
+            self.stack.addWidget(page)
+        self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
+        self.nav.setCurrentRow(0)
+
+    def page(self, title):
+        page = QWidget()
+        lay = QVBoxLayout(page)
+        lay.setContentsMargins(18, 8, 18, 8)
+        lay.setSpacing(14)
+        head = QLabel(title)
+        head.setObjectName("pageTitle")
+        lay.addWidget(head)
+        return page, lay
+
+    @staticmethod
+    def section(lay, text):
+        label = QLabel(text)
+        label.setObjectName("section")
+        lay.addWidget(label)
+
+    def check(self, lay, text, key, default, on_change=None):
+        box = Check(text)
+        box.setChecked(self.studio.settings.value(key, default, bool))
+
+        def changed(on):
+            self.studio.settings.setValue(key, on)
+            if on_change:
+                on_change(on)
+
+        box.toggled.connect(changed)
+        lay.addWidget(box)
+        return box
+
+    @staticmethod
+    def info(lay, text, value, keycap=False):
+        row = QHBoxLayout()
+        label = QLabel(text)
+        label.setObjectName("rowLabel")
+        row.addWidget(label)
+        row.addStretch(1)
+        val = QLabel(value)
+        val.setObjectName("keycap" if keycap else "rowValue")
+        row.addWidget(val)
+        lay.addLayout(row)
+
+    def general_page(self):
+        page, lay = self.page("General")
+        self.section(lay, "Window")
+        self.check(lay, "Remember window size and position",
+                   "remember_geometry", True)
+        self.check(lay, "Keep Fragloop above other windows",
+                   "always_on_top", False, self.studio.set_always_on_top)
+
+        self.section(lay, "Recording")
+        self.info(lay, "Save replay", "Alt + P", True)
+        self.info(lay, "Start or stop recording", "Alt + G", True)
+        self.info(lay, "Replay length", "5 minutes")
         lay.addStretch(1)
+        return page
+
+    def appearance_page(self):
+        page, lay = self.page("Appearance")
+        self.section(lay, "Glass")
+        row = QHBoxLayout()
+        label = QLabel("Panel opacity")
+        label.setObjectName("rowLabel")
+        row.addWidget(label)
+        row.addStretch(1)
+        self.opacity_value = QLabel()
+        self.opacity_value.setObjectName("rowValue")
+        row.addWidget(self.opacity_value)
+        lay.addLayout(row)
+
+        self.opacity = QSlider(Qt.Horizontal)
+        self.opacity.setRange(75, 100)
+        value = int(self.studio.settings.value("opacity", 95))
+        self.opacity.setValue(value)
+        self.opacity_value.setText(f"{value}%")
+        self.opacity.valueChanged.connect(self.on_opacity)
+        lay.addWidget(self.opacity)
+
+        self.check(lay, "Grain texture", "grain", True,
+                   self.studio.root.set_grain)
+        hint = QLabel("Lower opacity lets more of the desktop show through.")
+        hint.setObjectName("rowValue")
+        hint.setWordWrap(True)
+        lay.addWidget(hint)
+        lay.addStretch(1)
+        return page
+
+    def clips_page(self):
+        page, lay = self.page("Clips")
+        self.section(lay, "Library")
+        row = QHBoxLayout()
+        label = QLabel("Sort by")
+        label.setObjectName("rowLabel")
+        row.addWidget(label)
+        row.addStretch(1)
+        self.sort = Combo()
+        self.sort.addItems(["Newest first", "Oldest first"])
+        self.sort.setCurrentIndex(
+            0 if self.studio.settings.value("sort_newest", True, bool) else 1)
+        self.sort.currentIndexChanged.connect(self.on_sort)
+        row.addWidget(self.sort)
+        lay.addLayout(row)
+
+        self.check(lay, "Ask before deleting a clip", "confirm_delete", True)
+        hint = QLabel("Deleted clips go to the Recycle Bin, so a misclick "
+                      "can be undone.")
+        hint.setObjectName("rowValue")
+        hint.setWordWrap(True)
+        lay.addWidget(hint)
+        lay.addStretch(1)
+        return page
+
+    def storage_page(self):
+        page, lay = self.page("Storage")
+        self.section(lay, "Folders")
+        self.folder_row(lay, "Saved clips", OUT_DIR)
+        self.folder_row(lay, "Replay buffer", BUFFER_DIR)
+        hint = QLabel("The recorder keeps the last 5 minutes in the buffer. "
+                      "Saved clips stay in Captures until you delete them.")
+        hint.setObjectName("rowValue")
+        hint.setWordWrap(True)
+        lay.addWidget(hint)
+
+        self.section(lay, "Space")
+        try:
+            probe = OUT_DIR if OUT_DIR.exists() else OUT_DIR.parent
+            free = shutil.disk_usage(probe).free
+        except OSError:
+            free = 0
+        self.info(lay, "Free on this drive",
+                  f"{size_text(free)} available" if free else "Unavailable")
+        lay.addStretch(1)
+        return page
+
+    def folder_row(self, lay, title, path):
+        row = QHBoxLayout()
+        col = QVBoxLayout()
+        col.setSpacing(2)
+        label = QLabel(title)
+        label.setObjectName("rowLabel")
+        where = QLabel(str(path))
+        where.setObjectName("path")
+        where.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        col.addWidget(label)
+        col.addWidget(where)
+        row.addLayout(col, 1)
+        btn = QPushButton("Open")
+        btn.setObjectName("setOpen")
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(lambda: self.open_folder(path))
+        row.addWidget(btn)
+        lay.addLayout(row)
+
+    @staticmethod
+    def open_folder(path):
+        path.mkdir(parents=True, exist_ok=True)
+        os.startfile(path)
+
+    def about_page(self):
+        page, lay = self.page("About")
+        row = QHBoxLayout()
+        row.setSpacing(14)
+        row.addWidget(Logo(54))
+        col = QVBoxLayout()
+        col.setSpacing(2)
+        name = QLabel("Fragloop")
+        name.setObjectName("aboutName")
+        ver = QLabel(f"Version {APP_VERSION}")
+        ver.setObjectName("rowValue")
+        col.addWidget(name)
+        col.addWidget(ver)
+        col.addStretch(1)
+        row.addLayout(col)
+        row.addStretch(1)
+        lay.addLayout(row)
+
+        text = QLabel("A local replay buffer and clip library for Windows. "
+                      "Clips stay on this PC.")
+        text.setObjectName("aboutText")
+        text.setWordWrap(True)
+        lay.addWidget(text)
+        link = QLabel('<a href="https://github.com/shaankatoch304/Fragloop" '
+                      'style="color:#ff8a95; text-decoration:none;">'
+                      'GitHub repository</a>')
+        link.setOpenExternalLinks(True)
+        lay.addWidget(link)
+        note = QLabel("Bundled FFmpeg is licensed under GPLv3.")
+        note.setObjectName("rowValue")
+        lay.addWidget(note)
+        lay.addStretch(1)
+        return page
 
     def on_opacity(self, value):
-        self.value.setText(f"{value}%")
+        self.opacity_value.setText(f"{value}%")
         self.studio.root.set_alpha(value)
         self.studio.settings.setValue("opacity", value)
 
-    def on_grain(self, on):
-        self.studio.root.set_grain(on)
-        self.studio.settings.setValue("grain", on)
+    def on_sort(self, index):
+        self.studio.settings.setValue("sort_newest", index == 0)
+        self.studio.refresh()
 
 
 def trash_icon(color="#8a93a6"):
@@ -426,10 +707,11 @@ class Logo(QWidget):
 
 
 class ClipRow(QWidget):
-    def __init__(self, path, on_delete):
+    def __init__(self, path, on_delete, confirm=None):
         super().__init__()
         self.path = path
         self._on_delete = on_delete
+        self._confirm = confirm
         self.setObjectName("clipRow")
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setFixedHeight(THUMB_H + 20)
@@ -477,6 +759,8 @@ class ClipRow(QWidget):
         lay.addWidget(remove)
 
     def _delete(self):
+        if self._confirm and not self._confirm(self.path):
+            return
         if recycle(self.path):
             self._on_delete()
         else:
@@ -496,7 +780,9 @@ class Studio(QMainWindow):
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setMinimumSize(760, 520)
         self.settings = QSettings("Fragloop", "Studio")
-        if not self.restoreGeometry(self.settings.value("geometry", QByteArray())):
+        if (not self.settings.value("remember_geometry", True, bool)
+                or not self.restoreGeometry(
+                    self.settings.value("geometry", QByteArray()))):
             self.resize(1000, 700)
         self._seen = None
         self._window_styled = False
@@ -598,6 +884,8 @@ class Studio(QMainWindow):
 
     def showEvent(self, event):
         super().showEvent(event)
+        if self.settings.value("always_on_top", False, bool):
+            self.set_always_on_top(True)
         if self._window_styled:
             return
         self._window_styled = True
@@ -619,6 +907,29 @@ class Studio(QMainWindow):
         dlg.show()
         dlg.raise_()
         dlg.activateWindow()
+
+    def set_always_on_top(self, on):
+        try:
+            ctypes.windll.user32.SetWindowPos(
+                ctypes.c_void_p(int(self.winId())),
+                ctypes.c_void_p(-1 if on else -2), 0, 0, 0, 0,
+                0x0001 | 0x0002 | 0x0010)
+        except (AttributeError, OSError):
+            pass
+
+    def confirm_delete(self, path):
+        if not self.settings.value("confirm_delete", True, bool):
+            return True
+        box = QMessageBox(self)
+        box.setWindowTitle("Delete clip")
+        box.setText(f"Move {path.name} to the Recycle Bin?")
+        box.setIcon(QMessageBox.Question)
+        yes = box.addButton("Delete", QMessageBox.YesRole)
+        cancel = box.addButton("Cancel", QMessageBox.RejectRole)
+        box.setDefaultButton(cancel)
+        box.setEscapeButton(cancel)
+        box.exec()
+        return box.clickedButton() is yes
 
     def toggle_max(self):
         if self.isMaximized():
@@ -658,12 +969,14 @@ class Studio(QMainWindow):
             # write so the list does not rebuild a growing clip every 2 s.
             if now - mtime >= 2:
                 found.append((mtime, p))
-        found.sort(key=lambda item: item[0], reverse=True)
+        found.sort(key=lambda item: item[0],
+                   reverse=self.settings.value("sort_newest", True, bool))
         return [p for _, p in found]
 
     def refresh(self):
         files = self.clips()
-        key = tuple((p.name, p.stat().st_mtime) for p in files)
+        key = (self.settings.value("sort_newest", True, bool),
+               tuple((p.name, p.stat().st_mtime) for p in files))
         if key == self._seen:
             return
         self._seen = key
@@ -674,7 +987,7 @@ class Studio(QMainWindow):
                 item.widget().deleteLater()
         for path in files:
             self.list.insertWidget(self.list.count() - 1,
-                                   ClipRow(path, self.refresh))
+                                   ClipRow(path, self.refresh, self.confirm_delete))
 
         has = bool(files)
         self.scroll.setVisible(has)
@@ -691,7 +1004,8 @@ class Studio(QMainWindow):
             self.count.setText("")
 
     def closeEvent(self, event):
-        self.settings.setValue("geometry", self.saveGeometry())
+        if self.settings.value("remember_geometry", True, bool):
+            self.settings.setValue("geometry", self.saveGeometry())
         super().closeEvent(event)
 
 
