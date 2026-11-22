@@ -2,8 +2,8 @@
 
 Alt+G starts/stops. Records the primary display at a constant 120 fps with
 NVENC straight from the GPU and system audio via WASAPI loopback (never the
-mic). Alt+P saves the last five minutes from the replay buffer. Files land in
-Videos\\Captures as .mp4.
+mic). Alt+P saves the last 1-15 minutes (5 by default) from the replay
+buffer. Files land in Videos\\Captures as .mp4.
 """
 import ctypes
 import ctypes.wintypes
@@ -15,6 +15,7 @@ import sys
 import threading
 import time
 import wave
+import winreg
 from pathlib import Path
 
 import pyaudiowpatch as pyaudio
@@ -56,12 +57,33 @@ HOTKEY_VK = 0x47               # G
 HOTKEY_MODS = 0x0001 | 0x4000  # Alt | MOD_NOREPEAT
 
 BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
-REPLAY_SECONDS = 300           # how much past gameplay Alt+P saves
+REPLAY_SECONDS = 300           # default; Preferences can set 1-15 minutes
 SEGMENT_SECONDS = 2            # small chunks keep the freshest tail on disk
-SAVE_SEGMENTS = REPLAY_SECONDS // SEGMENT_SECONDS + 1
-KEEP_SEGMENTS = SAVE_SEGMENTS + 5
+REPLAY_SECONDS_OVERRIDE = None  # tests pin a short buffer
 AUDIO_ROTATE_SECONDS = 300     # rolling audio chunk size
 KEEP_AUDIO_FILES = 12          # ~1 h, so a long manual recording keeps its audio
+
+
+def _replay_seconds():
+    """Read the Preferences slider without pulling Qt into the engine."""
+    if REPLAY_SECONDS_OVERRIDE is not None:
+        return int(REPLAY_SECONDS_OVERRIDE)
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Fragloop\Studio") as key:
+            value, _ = winreg.QueryValueEx(key, "replay_minutes")
+        return min(15, max(1, int(value))) * 60
+    except (OSError, ValueError, TypeError):
+        return REPLAY_SECONDS
+
+
+def _save_segments():
+    return _replay_seconds() // SEGMENT_SECONDS + 1
+
+
+def _keep_segments():
+    return _save_segments() + 5
+
 # Seconds of audio to trim from the end, measured with a white flash + 1 kHz
 # tone that was primed so PyAudio's cold start could not skew the timing.
 AUDIO_SYNC_BY_DEVICE = {"JBL": -0.084, "Realtek": -0.025}
@@ -459,18 +481,21 @@ def _probe_duration(path):
 def _prune_buffer():
     # A long save reads the oldest segments for many seconds; deleting them
     # underneath ffmpeg either breaks the save or kills this thread via
-    # PermissionError. KEEP_SEGMENTS leaves only 10 s of slack beyond the
-    # 151 a save consumes, so skip deletion entirely while one is running.
+    # PermissionError. The keep limit leaves only 10 s of slack beyond a save,
+    # so skip deletion entirely while one is running.
     if not _save_lock.locked():
         for pat in ("buf_*.mkv", "aud_*.pcm"):
-            keep = KEEP_SEGMENTS if pat.startswith("buf") else KEEP_AUDIO_FILES
+            keep = (_keep_segments() if pat.startswith("buf")
+                    else KEEP_AUDIO_FILES)
             for p in sorted(BUFFER_DIR.glob(pat))[:-keep]:
                 try:
                     p.unlink(missing_ok=True)
                 except OSError:
                     pass
     try:
-        if shutil.disk_usage(BUFFER_DIR).free < 8 * 2**30:
+        # 80 Mbit/s is about 0.6 GB/min, so a longer buffer needs more room.
+        reserve = max(8, 2 + _replay_seconds() / 60 * 0.75) * 2**30
+        if shutil.disk_usage(BUFFER_DIR).free < reserve:
             _log("replay buffer stopped: low disk space")
             _notify("Replay buffer stopped: low disk space")
             _buffer_stop_all()
@@ -587,8 +612,8 @@ _save_lock = threading.Lock()
 
 
 def _buffer_save(icon=None, item=None):
-    # Never run this on the hotkey thread: a 5-minute save takes 10-20 s,
-    # and before this any exception there killed Alt+G/Alt+P for good.
+    # Never run this on the hotkey thread: a long save takes 10-20 s, and
+    # before this any exception there killed Alt+G/Alt+P for good.
     threading.Thread(target=_save_replay, daemon=True).start()
 
 
@@ -610,7 +635,7 @@ def _save_replay():
         # made one replay play ~0.1 s late. Use only finished segments.
         if segs and time.time() - segs[-1].stat().st_mtime < 0.3:
             segs = segs[:-1]
-        chosen = segs[-SAVE_SEGMENTS:]
+        chosen = segs[-_save_segments():]
         if not chosen:
             _log("replay save skipped: no segments yet")
             _notify("Buffer still filling - try again shortly")

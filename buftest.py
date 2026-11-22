@@ -1,12 +1,11 @@
-"""Headless replay-buffer check: 2s segments, save the last 3, verify mp4."""
+"""Headless replay-buffer check: 2s segments, short save, verify mp4."""
 import subprocess
 import time
 
 import recorder
 
 recorder.SEGMENT_SECONDS = 2
-recorder.SAVE_SEGMENTS = 3
-recorder.KEEP_SEGMENTS = 5
+recorder.REPLAY_SECONDS_OVERRIDE = 6
 recorder.AUDIO_ROTATE_SECONDS = 3
 recorder.KEEP_AUDIO_FILES = 4
 

@@ -1,12 +1,14 @@
 # Fragloop
 
-GPU-direct game clip recorder for Windows, with a five-minute replay buffer.
+GPU-direct game clip recorder for Windows, with a replay buffer you can set
+from 1 to 15 minutes.
 
 ![Fragloop Studio](docs/screenshot.png)
 
 Fragloop records your display at a constant 120 fps straight from the GPU and
-keeps the last five minutes in a rolling buffer. Press `Alt+P` and the buffer is
-saved as an MP4 — no need to have been recording. `Alt+G` records manually.
+keeps a rolling buffer (5 minutes by default, up to 15). Press `Alt+P` and the
+buffer is saved as an MP4 — no need to have been recording. `Alt+G` records
+manually.
 
 ## Download
 
@@ -26,7 +28,8 @@ Choose **More info → Run anyway**.
   without a CPU frame copy, so fast games stay smooth.
 - **Constant 120 fps** — CFR output avoids the judder VFR capture produces in
   players, even on a 240 Hz panel.
-- **Five-minute replay buffer** — two-second segments, saved in seconds.
+- **Configurable replay buffer** — 1 to 15 minutes (5 by default), two-second
+  segments, saved in seconds.
 - **System audio** — WASAPI loopback, no microphone. Switches automatically when
   you change the Windows default output device.
 - **Native window and tray** - a frameless, translucent clip library with
@@ -41,10 +44,10 @@ Choose **More info → Run anyway**.
 - NVIDIA GPU with NVENC (Turing or newer recommended)
 - Release builds include ffmpeg. Source builds need ffmpeg 7 or newer
   (`ffmpeg.exe` and `ffprobe.exe`) next to `Fragloop.exe`
-- Free disk space: the replay buffer uses up to ~4 GB, a saved five-minute
-  replay is ~2.3 GB typical (~3.4 GB at the cap), and a seven-minute manual
-  clip stays under 5 GB. Saving needs room for the temporary concat as well
-  (~2x briefly).
+- Free disk space: the replay buffer uses up to ~4 GB at the default five
+  minutes (~9 GB at 15 minutes), a saved five-minute replay is ~2.3 GB typical
+  (~3.4 GB at the cap), and a seven-minute manual clip stays under 5 GB. Saving
+  needs room for the temporary concat as well (~2x briefly).
 
 Tested on Windows 11, RTX 5070 Ti Laptop GPU, 2560x1600 @ 240 Hz.
 
@@ -53,11 +56,11 @@ Tested on Windows 11, RTX 5070 Ti Laptop GPU, 2560x1600 @ 240 Hz.
 | Shortcut | Action |
 | --- | --- |
 | `Alt+G` / `Ctrl+Alt+G` | Start / stop a manual recording |
-| `Alt+P` / `Ctrl+Alt+P` | Save the last five minutes |
+| `Alt+P` / `Ctrl+Alt+P` | Save the replay buffer (last 1–15 minutes) |
 
 Clips are written to `Videos\Captures`. Settings live at the top of
-`recorder.py` (`RECORD_FPS`, `VIDEO_BITRATE`, `VIDEO_MAXRATE`, `REPLAY_SECONDS`,
-`SEGMENT_SECONDS`).
+`recorder.py` (`RECORD_FPS`, `VIDEO_BITRATE`, `VIDEO_MAXRATE`, `SEGMENT_SECONDS`).
+The replay length is set in Preferences (1–15 minutes).
 
 ## How it works
 
@@ -68,8 +71,8 @@ Clips are written to `Videos\Captures`. Settings live at the top of
    concatenated without re-encoding.
 3. WASAPI loopback writes 48 kHz stereo PCM into rotating five-minute chunks,
    padded against the wall clock so silence does not shift the timeline.
-4. A replay save concatenates the newest 151 segments, trims the matching audio
-   tail, and remuxes video (copy) plus AAC audio into an MP4.
+4. A replay save concatenates the newest segments for the chosen length, trims
+   the matching audio tail, and remuxes video (copy) plus AAC audio into an MP4.
 5. The engine runs as a tray process; `Fragloop.exe` opens the window and starts
    the engine as a child process, so a window crash cannot stop a recording.
 

@@ -198,6 +198,10 @@ def size_text(n):
     return f"{n / 2**30:.2f} GB" if n >= 2**30 else f"{n / 2**20:.0f} MB"
 
 
+def minutes_text(minutes):
+    return "1 minute" if minutes == 1 else f"{minutes} minutes"
+
+
 def recycle(path):
     """Move to the Recycle Bin (FOF_ALLOWUNDO) so a misclick is undoable."""
     class Op(ctypes.Structure):
@@ -505,9 +509,48 @@ class Settings(QDialog):
         self.section(lay, "Recording")
         self.info(lay, "Save replay", "Alt + P", True)
         self.info(lay, "Start or stop recording", "Alt + G", True)
-        self.info(lay, "Replay length", "5 minutes")
+
+        row = QHBoxLayout()
+        label = QLabel("Replay buffer")
+        label.setObjectName("rowLabel")
+        row.addWidget(label)
+        row.addStretch(1)
+        self.replay_value = QLabel()
+        self.replay_value.setObjectName("rowValue")
+        row.addWidget(self.replay_value)
+        lay.addLayout(row)
+
+        self.replay = QSlider(Qt.Horizontal)
+        self.replay.setRange(1, 15)
+        self.replay.setAccessibleName("Replay buffer length")
+        value = self.studio.replay_minutes
+        self.replay.setValue(value)
+        self.replay_value.setText(f"{value} min")
+        self.replay.valueChanged.connect(self.on_replay_minutes)
+        lay.addWidget(self.replay)
+
+        ends = QHBoxLayout()
+        low = QLabel("1 min")
+        low.setObjectName("rowValue")
+        high = QLabel("15 min")
+        high.setObjectName("rowValue")
+        ends.addWidget(low)
+        ends.addStretch(1)
+        ends.addWidget(high)
+        lay.addLayout(ends)
+
+        self.replay_hint = QLabel()
+        self.replay_hint.setObjectName("rowValue")
+        self.replay_hint.setWordWrap(True)
+        self.replay_hint.setText(self.replay_text(value))
+        lay.addWidget(self.replay_hint)
         lay.addStretch(1)
         return page
+
+    @staticmethod
+    def replay_text(minutes):
+        return (f"Alt+P saves the last {minutes_text(minutes)}. "
+                "Longer buffers use more disk; 15 minutes is about 9 GB.")
 
     def appearance_page(self):
         page, lay = self.page("Appearance")
@@ -569,11 +612,13 @@ class Settings(QDialog):
         self.section(lay, "Folders")
         self.folder_row(lay, "Saved clips", OUT_DIR)
         self.folder_row(lay, "Replay buffer", BUFFER_DIR)
-        hint = QLabel("The recorder keeps the last 5 minutes in the buffer. "
-                      "Saved clips stay in Captures until you delete them.")
-        hint.setObjectName("rowValue")
-        hint.setWordWrap(True)
-        lay.addWidget(hint)
+        self.storage_hint = QLabel(
+            f"The recorder keeps the last "
+            f"{minutes_text(self.studio.replay_minutes)} in the buffer. "
+            "Saved clips stay in Captures until you delete them.")
+        self.storage_hint.setObjectName("rowValue")
+        self.storage_hint.setWordWrap(True)
+        lay.addWidget(self.storage_hint)
 
         self.section(lay, "Space")
         try:
@@ -648,6 +693,16 @@ class Settings(QDialog):
         self.opacity_value.setText(f"{value}%")
         self.studio.root.set_alpha(value)
         self.studio.settings.setValue("opacity", value)
+
+    def on_replay_minutes(self, value):
+        self.replay_value.setText(f"{value} min")
+        self.replay_hint.setText(self.replay_text(value))
+        self.studio.settings.setValue("replay_minutes", value)
+        self.studio.settings.sync()      # the engine reads this live
+        self.studio.set_replay_minutes(value)
+        self.storage_hint.setText(
+            f"The recorder keeps the last {minutes_text(value)} in the buffer. "
+            "Saved clips stay in Captures until you delete them.")
 
     def on_sort(self, index):
         self.studio.settings.setValue("sort_newest", index == 0)
@@ -780,6 +835,11 @@ class Studio(QMainWindow):
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setMinimumSize(760, 520)
         self.settings = QSettings("Fragloop", "Studio")
+        try:
+            self.replay_minutes = min(15, max(1, int(
+                self.settings.value("replay_minutes", 5))))
+        except (TypeError, ValueError):
+            self.replay_minutes = 5
         if (not self.settings.value("remember_geometry", True, bool)
                 or not self.restoreGeometry(
                     self.settings.value("geometry", QByteArray()))):
@@ -859,11 +919,13 @@ class Studio(QMainWindow):
         t = QLabel("No clips yet")
         t.setObjectName("emptyTitle")
         t.setAlignment(Qt.AlignCenter)
-        h = QLabel("Alt+G records  ·  Alt+P saves the last 5 minutes")
-        h.setObjectName("emptyHint")
-        h.setAlignment(Qt.AlignCenter)
+        self.empty_hint = QLabel(
+            f"Alt+G records  ·  Alt+P saves the last "
+            f"{minutes_text(self.replay_minutes)}")
+        self.empty_hint.setObjectName("emptyHint")
+        self.empty_hint.setAlignment(Qt.AlignCenter)
         el.addWidget(t)
-        el.addWidget(h)
+        el.addWidget(self.empty_hint)
         el.addStretch(1)
         outer.addWidget(self.empty, 1)
 
@@ -907,6 +969,11 @@ class Studio(QMainWindow):
         dlg.show()
         dlg.raise_()
         dlg.activateWindow()
+
+    def set_replay_minutes(self, minutes):
+        self.replay_minutes = minutes
+        self.empty_hint.setText(
+            f"Alt+G records  ·  Alt+P saves the last {minutes_text(minutes)}")
 
     def set_always_on_top(self, on):
         try:
