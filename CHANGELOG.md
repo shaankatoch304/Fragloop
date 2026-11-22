@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Preferences opens with Ctrl+, and double-clicking the title bar
+  maximizes or restores the window.
+- Slider handles and focused controls show clearer hover and focus states.
+
 ## 0.2.0 - 2026-11-22
 
 - Alt+G start/stop runs off the hotkey thread now: a slow stop no longer

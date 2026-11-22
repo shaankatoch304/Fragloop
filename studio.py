@@ -14,8 +14,8 @@ from pathlib import Path
 
 from PySide6.QtCore import (QByteArray, QEvent, QPointF, QRectF, QSettings,
                             QSize, Qt, QTimer)
-from PySide6.QtGui import (QColor, QIcon, QImage, QPainter, QPainterPath, QPen,
-                           QPixmap)
+from PySide6.QtGui import (QColor, QIcon, QImage, QKeySequence, QPainter,
+                           QPainterPath, QPen, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                                QFrame, QHBoxLayout, QLabel, QListWidget,
                                QListWidgetItem, QMainWindow, QMessageBox,
@@ -86,6 +86,9 @@ QSlider::sub-page:horizontal { background: #ff4d5e; border-radius: 2px; }
 QSlider::handle:horizontal {
     background: #e6e9f0; width: 12px; margin: -5px 0; border-radius: 6px;
 }
+QSlider::handle:horizontal:hover { background: #ffffff; }
+QSlider::handle:horizontal:pressed { background: #ff8a95; }
+QPushButton#setOpen:focus, QComboBox:focus { border-color: #ff4d5e; }
 QCheckBox {
     color: #c3cad8; font-family: "Segoe UI"; font-size: 12px; spacing: 8px;
 }
@@ -339,6 +342,12 @@ class Header(QWidget):
 
     def mouseReleaseEvent(self, event):
         self._grab = None
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            toggle = getattr(self._window, "toggle_max", None)
+            if toggle:
+                toggle()
 
 
 class Combo(QComboBox):
@@ -857,6 +866,8 @@ class Studio(QMainWindow):
         self._seen = None
         self._window_styled = False
         self.settings_dialog = None
+        self.settings_shortcut = QShortcut(QKeySequence("Ctrl+,"), self)
+        self.settings_shortcut.activated.connect(self.open_settings)
         QApplication.instance().installEventFilter(self)
 
         root = Panel()
@@ -881,7 +892,7 @@ class Studio(QMainWindow):
         gear.setObjectName("winbtn")
         gear.setIcon(QIcon(gear_pixmap(18)))
         gear.setIconSize(QSize(18, 18))
-        gear.setToolTip("Settings")
+        gear.setToolTip("Settings (Ctrl+,)")
         gear.setAccessibleName("Settings")
         gear.setFixedSize(30, 28)
         gear.setCursor(Qt.PointingHandCursor)
