@@ -119,7 +119,7 @@ def clock(seconds):
 
 
 def size_text(n):
-    return f"{n / 2**30:.1f} GB" if n >= 2**30 else f"{n / 2**20:.0f} MB"
+    return f"{n / 2**30:.2f} GB" if n >= 2**30 else f"{n / 2**20:.0f} MB"
 
 
 def recycle(path):
