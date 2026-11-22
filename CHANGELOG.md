@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Alt+G start/stop runs off the hotkey thread now: a slow stop no longer
+  swallows or queues presses. Repeat presses while busy are ignored instead of
+  replaying as a burst of start/stop toggles.
+- Studio shows live buffer/recording status, clip count with total size, a
+  persistent hotkey hint, and remembers its window size and position.
+- Studio no longer re-probes clip durations on every refresh or rebuilds a
+  thumbnail for a clip that is still being muxed.
+
 ## 0.1.1 - 2026-11-22
 
 - Encode 10-bit HEVC at an 80 Mbit/s average with 110 Mbit/s peaks: a

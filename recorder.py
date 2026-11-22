@@ -78,6 +78,7 @@ LOG.parent.mkdir(parents=True, exist_ok=True)
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 _lock = threading.Lock()
+_quitting = False
 _icon = None
 _proc = None
 _recording = False
@@ -830,8 +831,25 @@ def _stop():
 
 
 def _toggle(icon=None, item=None):
-    with _lock:
-        _stop() if _recording else _start()
+    # A stop waits up to 15 s for ffmpeg to close. Run it off the caller's
+    # thread so the hotkey message loop keeps pumping; otherwise presses queue
+    # up and replay as a burst of start/stop toggles once the stop finishes.
+    if not _lock.acquire(blocking=False):
+        _log("toggle ignored: previous start/stop still running")
+        _notify("Recorder is busy - try again")
+        return
+
+    def run():
+        try:
+            if _quitting:
+                return
+            _stop() if _recording else _start()
+        except Exception as e:
+            _log(f"toggle failed: {e!r}")
+        finally:
+            _lock.release()
+
+    threading.Thread(target=run, daemon=True).start()
 
 
 def _hotkey_loop():
@@ -866,8 +884,13 @@ def _hotkey_loop():
 
 
 def _quit(icon=None, item=None):
-    if _recording:
-        _stop()
+    global _quitting
+    _quitting = True
+    # Wait for an in-flight start/stop so quitting cannot leave an orphan
+    # ffmpeg writing after the engine exits.
+    with _lock:
+        if _recording:
+            _stop()
     _buffer_stop_all()
     _icon.stop()
 

@@ -31,6 +31,8 @@ Choose **More info → Run anyway**.
   you change the Windows default output device.
 - **Native window and tray** — clip library with thumbnails, hotkeys that work
   while a game has focus.
+- **Live status** — the window shows whether the buffer is running or a
+  recording is in progress, plus the clip count and total size.
 - **MP4 (10-bit HEVC + AAC)** — roughly half the H.264 size at the same
   quality. Windows needs the free HEVC Video Extension (or VLC/MPC) to play it.
 
@@ -107,6 +109,7 @@ Development checks:
 
 - `python selftest.py` — record four seconds and verify video + audio.
 - `python buftest.py` — small replay-buffer save and container check.
+- `python hotkeytest.py` — hotkey toggle guard, no capture needed.
 - `python sendkey.py 47` — synthetic `Alt+G` (hex virtual-key code).
 
 ## Troubleshooting
@@ -140,6 +143,7 @@ icon.ico          application icon
 docs/             README screenshot
 selftest.py       headless recording smoke test
 buftest.py        headless buffer smoke test
+hotkeytest.py     hotkey toggle guard (no capture)
 sendkey.py        synthetic hotkey helper
 ```
 
