@@ -5,14 +5,15 @@ double-click a clip to play it. The recorder engine is untouched.
 """
 import ctypes
 import os
+import random
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-from PySide6.QtCore import (QByteArray, QEvent, QPointF, QSettings, QSize, Qt,
-                            QTimer)
-from PySide6.QtGui import (QColor, QIcon, QPainter, QPainterPath, QPen,
+from PySide6.QtCore import (QByteArray, QEvent, QPointF, QRectF, QSettings,
+                            QSize, Qt, QTimer)
+from PySide6.QtGui import (QColor, QIcon, QImage, QPainter, QPainterPath, QPen,
                            QPixmap)
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
                                QMainWindow, QPushButton, QScrollArea,
@@ -178,6 +179,38 @@ def app_icon():
     return icon
 
 
+def noise_pixmap(size=192):
+    """Fine white grain tile, built once and tiled over the panel."""
+    rng = random.Random(7)
+    data = bytearray()
+    for _ in range(size * size):
+        data += bytes((255, 255, 255, rng.getrandbits(3)))
+    img = QImage(bytes(data), size, size, QImage.Format_ARGB32)
+    return QPixmap.fromImage(img.copy())
+
+
+class Panel(QWidget):
+    """Root surface: the translucent stylesheet background plus faint grain."""
+
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("root")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self._grain = None
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self._grain is None:
+            self._grain = noise_pixmap()
+        p = QPainter(self)
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(1, 1, self.width() - 2, self.height() - 2),
+                            11, 11)
+        p.setClipPath(path)
+        p.drawTiledPixmap(0, 0, self.width(), self.height(), self._grain)
+        p.end()
+
+
 class Header(QWidget):
     """Empty header space drags the frameless window; buttons still click."""
 
@@ -328,9 +361,7 @@ class Studio(QMainWindow):
         self._window_styled = False
         QApplication.instance().installEventFilter(self)
 
-        root = QWidget()
-        root.setObjectName("root")
-        root.setAttribute(Qt.WA_StyledBackground, True)
+        root = Panel()
         self.setCentralWidget(root)
         outer = QVBoxLayout(root)
         outer.setContentsMargins(22, 20, 22, 18)
