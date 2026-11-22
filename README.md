@@ -28,8 +28,8 @@ Choose **More info → Run anyway**.
   without a CPU frame copy, so fast games stay smooth.
 - **Constant 120 fps** — CFR output avoids the judder VFR capture produces in
   players, even on a 240 Hz panel.
-- **Configurable replay buffer** — 1 to 15 minutes (5 by default), two-second
-  segments, saved in seconds.
+- **Configurable replay buffer** — 1 to 15 minutes with second-level precision
+  (5 minutes by default), two-second segments, saved in seconds.
 - **System audio** — WASAPI loopback, no microphone. Switches automatically when
   you change the Windows default output device.
 - **Native window and tray** - a frameless, translucent clip library with
@@ -60,7 +60,7 @@ Tested on Windows 11, RTX 5070 Ti Laptop GPU, 2560x1600 @ 240 Hz.
 
 Clips are written to `Videos\Captures`. Settings live at the top of
 `recorder.py` (`RECORD_FPS`, `VIDEO_BITRATE`, `VIDEO_MAXRATE`, `SEGMENT_SECONDS`).
-The replay length is set in Preferences (1–15 minutes).
+The replay length is set in Preferences (1–15 minutes, second-level precision).
 
 ## How it works
 

@@ -13,7 +13,8 @@
   clip sorting and delete confirmation, storage folders and free space, and
   an About page. The old Open folder button moved there.
 - The replay buffer length is now a Preferences slider from 1 to 15 minutes
-  (5 by default). The engine picks up the change without a restart.
+  with second-level precision (5 minutes by default). The engine picks up the
+  change without a restart.
 - Studio shows the clip count with total size, a persistent hotkey hint, and
   remembers its window size and position. Clip sizes switch from MB to GB
   above 1024 MB.

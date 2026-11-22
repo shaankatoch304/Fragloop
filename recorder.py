@@ -57,7 +57,7 @@ HOTKEY_VK = 0x47               # G
 HOTKEY_MODS = 0x0001 | 0x4000  # Alt | MOD_NOREPEAT
 
 BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
-REPLAY_SECONDS = 300           # default; Preferences can set 1-15 minutes
+REPLAY_SECONDS = 300           # default; Preferences can set 60-900 s
 SEGMENT_SECONDS = 2            # small chunks keep the freshest tail on disk
 REPLAY_SECONDS_OVERRIDE = None  # tests pin a short buffer
 AUDIO_ROTATE_SECONDS = 300     # rolling audio chunk size
@@ -71,8 +71,8 @@ def _replay_seconds():
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
                             r"Software\Fragloop\Studio") as key:
-            value, _ = winreg.QueryValueEx(key, "replay_minutes")
-        return min(15, max(1, int(value))) * 60
+            value, _ = winreg.QueryValueEx(key, "replay_seconds")
+        return min(900, max(60, int(value)))
     except (OSError, ValueError, TypeError):
         return REPLAY_SECONDS
 
