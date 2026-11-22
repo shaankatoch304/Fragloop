@@ -8,6 +8,9 @@
 - Studio is now a frameless, translucent window: the desktop shows through the
   dark panel, with custom minimize, maximize and close controls and edge
   resizing.
+- A gear in the header opens a compact settings panel: open the clips folder,
+  adjust panel opacity, or turn the grain off. The old Open folder button moved
+  there.
 - Studio shows the clip count with total size, a persistent hotkey hint, and
   remembers its window size and position. Clip sizes switch from MB to GB
   above 1024 MB.

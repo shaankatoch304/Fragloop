@@ -15,9 +15,9 @@ from PySide6.QtCore import (QByteArray, QEvent, QPointF, QRectF, QSettings,
                             QSize, Qt, QTimer)
 from PySide6.QtGui import (QColor, QIcon, QImage, QPainter, QPainterPath, QPen,
                            QPixmap)
-from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
-                               QMainWindow, QPushButton, QScrollArea,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QDialog, QFrame,
+                               QHBoxLayout, QLabel, QMainWindow, QPushButton,
+                               QScrollArea, QSlider, QVBoxLayout, QWidget)
 
 APP_DIR = (Path(sys.executable).resolve().parent
            if getattr(sys, "frozen", False) else Path(__file__).resolve().parent)
@@ -39,18 +39,36 @@ QWidget#root {
 QLabel#title { color: #eef1f6; font-family: "Segoe UI"; font-size: 21px; font-weight: 600; }
 QLabel#count { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; }
 QFrame#divider { background: #1a1f28; border: none; }
-QPushButton#ghost {
-    color: #c3cad8; background: #14181f; border: 1px solid #222835;
-    border-radius: 8px; padding: 7px 14px;
-    font-family: "Segoe UI"; font-size: 12px;
-}
-QPushButton#ghost:hover { background: #1a1f29; border-color: #2b3342; }
 QPushButton#winbtn, QPushButton#winbtnClose {
     color: #8a93a6; background: transparent; border: none;
     border-radius: 6px; font-family: "Segoe UI"; font-size: 13px;
 }
 QPushButton#winbtn:hover { background: #1a1f29; color: #eef1f6; }
 QPushButton#winbtnClose:hover { background: #3a1a20; color: #ff8a95; }
+QWidget#settings {
+    background: #0e1117; border: 1px solid #222835; border-radius: 12px;
+}
+QLabel#setTitle { color: #eef1f6; font-family: "Segoe UI"; font-size: 15px; font-weight: 600; }
+QLabel#setLabel { color: #aab2c4; font-family: "Segoe UI"; font-size: 12px; }
+QLabel#setValue { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; }
+QPushButton#setOpen {
+    color: #c3cad8; background: #14181f; border: 1px solid #222835;
+    border-radius: 7px; padding: 5px 12px;
+    font-family: "Segoe UI"; font-size: 11px;
+}
+QPushButton#setOpen:hover { background: #1a1f29; border-color: #2b3342; }
+QSlider::groove:horizontal {
+    height: 4px; background: #1a1f28; border-radius: 2px;
+}
+QSlider::sub-page:horizontal { background: #ff4d5e; border-radius: 2px; }
+QSlider::handle:horizontal {
+    background: #e6e9f0; width: 12px; margin: -5px 0; border-radius: 6px;
+}
+QCheckBox::indicator {
+    width: 16px; height: 16px; border: 1px solid #2b3342;
+    border-radius: 4px; background: #14181f;
+}
+QCheckBox::indicator:checked { background: #ff4d5e; border-color: #ff4d5e; }
 QPushButton#del {
     background: transparent; border: 1px solid transparent;
     border-radius: 8px; padding: 0;
@@ -179,6 +197,28 @@ def app_icon():
     return icon
 
 
+def gear_pixmap(size=18):
+    """Eight-tooth gear mark for the settings button."""
+    pm = QPixmap(size, size)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.translate(size / 2, size / 2)
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor("#aab2c4"))
+    for i in range(8):
+        p.save()
+        p.rotate(i * 45)
+        p.drawRoundedRect(QRectF(-size * 0.09, -size * 0.46,
+                                 size * 0.18, size * 0.22), 1, 1)
+        p.restore()
+    p.drawEllipse(QPointF(0, 0), size * 0.30, size * 0.30)
+    p.setCompositionMode(QPainter.CompositionMode_Clear)
+    p.drawEllipse(QPointF(0, 0), size * 0.13, size * 0.13)
+    p.end()
+    return pm
+
+
 def noise_pixmap(size=192):
     """Fine white grain tile, built once and tiled over the panel."""
     rng = random.Random(7)
@@ -197,9 +237,22 @@ class Panel(QWidget):
         self.setObjectName("root")
         self.setAttribute(Qt.WA_StyledBackground, True)
         self._grain = None
+        self.grain = True
+
+    def set_alpha(self, percent):
+        self.setStyleSheet(
+            f"QWidget#root {{ background: rgba(11, 13, 17, {percent / 100:.2f});"
+            " border: 1px solid rgba(255, 255, 255, 0.07);"
+            " border-radius: 12px; }")
+
+    def set_grain(self, on):
+        self.grain = on
+        self.update()
 
     def paintEvent(self, event):
         super().paintEvent(event)
+        if not self.grain:
+            return
         if self._grain is None:
             self._grain = noise_pixmap()
         p = QPainter(self)
@@ -230,6 +283,94 @@ class Header(QWidget):
 
     def mouseReleaseEvent(self, event):
         self._grab = None
+
+
+class Settings(QDialog):
+    """Compact panel for the few things worth changing in the UI."""
+
+    def __init__(self, studio):
+        super().__init__(studio)
+        self.studio = studio
+        self.setWindowFlag(Qt.FramelessWindowHint, True)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setWindowModality(Qt.NonModal)
+        self.setFixedSize(340, 190)
+
+        panel = QWidget()
+        panel.setObjectName("settings")
+        panel.setAttribute(Qt.WA_StyledBackground, True)
+        shell = QVBoxLayout(self)
+        shell.setContentsMargins(0, 0, 0, 0)
+        shell.addWidget(panel)
+
+        lay = QVBoxLayout(panel)
+        lay.setContentsMargins(18, 14, 18, 16)
+        lay.setSpacing(10)
+
+        top = QHBoxLayout()
+        title = QLabel("Settings")
+        title.setObjectName("setTitle")
+        top.addWidget(title)
+        top.addStretch(1)
+        close = QPushButton("\u2715")
+        close.setObjectName("winbtnClose")
+        close.setFixedSize(26, 24)
+        close.setToolTip("Close")
+        close.setCursor(Qt.PointingHandCursor)
+        close.clicked.connect(self.close)
+        top.addWidget(close)
+        lay.addLayout(top)
+
+        folder = QHBoxLayout()
+        flabel = QLabel("Clips folder")
+        flabel.setObjectName("setLabel")
+        folder.addWidget(flabel)
+        folder.addStretch(1)
+        open_btn = QPushButton("Open")
+        open_btn.setObjectName("setOpen")
+        open_btn.setCursor(Qt.PointingHandCursor)
+        open_btn.clicked.connect(lambda: os.startfile(OUT_DIR))
+        folder.addWidget(open_btn)
+        lay.addLayout(folder)
+
+        line = QHBoxLayout()
+        olabel = QLabel("Panel opacity")
+        olabel.setObjectName("setLabel")
+        line.addWidget(olabel)
+        line.addStretch(1)
+        self.value = QLabel()
+        self.value.setObjectName("setValue")
+        line.addWidget(self.value)
+        lay.addLayout(line)
+
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setRange(75, 100)
+        self.slider.setValue(int(studio.settings.value("opacity", 95)))
+        self.value.setText(f"{self.slider.value()}%")
+        self.slider.valueChanged.connect(self.on_opacity)
+        lay.addWidget(self.slider)
+
+        grain = QHBoxLayout()
+        glabel = QLabel("Grain")
+        glabel.setObjectName("setLabel")
+        grain.addWidget(glabel)
+        grain.addStretch(1)
+        self.grain = QCheckBox()
+        self.grain.setAccessibleName("Grain")
+        self.grain.setChecked(studio.settings.value("grain", True, bool))
+        self.grain.toggled.connect(self.on_grain)
+        grain.addWidget(self.grain)
+        lay.addLayout(grain)
+        lay.addStretch(1)
+
+    def on_opacity(self, value):
+        self.value.setText(f"{value}%")
+        self.studio.root.set_alpha(value)
+        self.studio.settings.setValue("opacity", value)
+
+    def on_grain(self, on):
+        self.studio.root.set_grain(on)
+        self.studio.settings.setValue("grain", on)
 
 
 def trash_icon(color="#8a93a6"):
@@ -359,10 +500,14 @@ class Studio(QMainWindow):
             self.resize(1000, 700)
         self._seen = None
         self._window_styled = False
+        self.settings_dialog = None
         QApplication.instance().installEventFilter(self)
 
         root = Panel()
+        self.root = root
         self.setCentralWidget(root)
+        root.set_alpha(self.settings.value("opacity", 95, int))
+        root.set_grain(self.settings.value("grain", True, bool))
         outer = QVBoxLayout(root)
         outer.setContentsMargins(22, 20, 22, 18)
         outer.setSpacing(16)
@@ -376,10 +521,16 @@ class Studio(QMainWindow):
         head.addWidget(Logo(30))
         head.addWidget(title)
         head.addStretch(1)
-        open_btn = QPushButton("Open folder")
-        open_btn.setObjectName("ghost")
-        open_btn.clicked.connect(lambda: os.startfile(OUT_DIR))
-        head.addWidget(open_btn)
+        gear = QPushButton()
+        gear.setObjectName("winbtn")
+        gear.setIcon(QIcon(gear_pixmap(18)))
+        gear.setIconSize(QSize(18, 18))
+        gear.setToolTip("Settings")
+        gear.setAccessibleName("Settings")
+        gear.setFixedSize(30, 28)
+        gear.setCursor(Qt.PointingHandCursor)
+        gear.clicked.connect(self.open_settings)
+        head.addWidget(gear)
         for text, tip, slot, name in (
                 ("\u2212", "Minimize", self.showMinimized, "winbtn"),
                 ("\u25a1", "Maximize", self.toggle_max, "winbtn"),
@@ -457,6 +608,17 @@ class Studio(QMainWindow):
                 ctypes.byref(ctypes.c_int(2)), 4)   # DWMWCP_ROUND
         except (AttributeError, OSError):
             pass
+
+    def open_settings(self):
+        if self.settings_dialog is None:
+            self.settings_dialog = Settings(self)
+        dlg = self.settings_dialog
+        center = self.frameGeometry().center()
+        dlg.move(center.x() - dlg.width() // 2,
+                 center.y() - dlg.height() // 2)
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
 
     def toggle_max(self):
         if self.isMaximized():
