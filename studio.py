@@ -31,7 +31,7 @@ APP_VERSION = "0.1.1"
 QSS = """
 QMainWindow { background: transparent; }
 QWidget#root {
-    background: rgba(11, 13, 17, 0.62);
+    background: rgba(11, 13, 17, 0.88);
     border: 1px solid rgba(255, 255, 255, 0.07);
     border-radius: 12px;
 }
