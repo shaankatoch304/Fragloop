@@ -14,9 +14,9 @@ manually.
 
 Prebuilt Windows builds are on the [Releases](https://github.com/shaankatoch304/Fragloop/releases) page.
 
-- **Setup (recommended)** — `Fragloop-0.1.1-win64-setup.exe`: per-user install,
+- **Setup (recommended)** — `Fragloop-0.2.0-win64-setup.exe`: per-user install,
   Start menu shortcut, optional autostart.
-- **Portable** — `Fragloop-0.1.1-win64-portable.zip`: extract anywhere and run
+- **Portable** — `Fragloop-0.2.0-win64-portable.zip`: extract anywhere and run
   `Fragloop.exe`.
 
 The builds are unsigned, so SmartScreen may show "Windows protected your PC".
@@ -154,6 +154,7 @@ sendkey.py        synthetic hotkey helper
 Source is closed; all rights reserved. Compiled builds may be shared free of
 charge for personal use. See [LICENSE](LICENSE).
 
-ffmpeg is not included in this repository. If you redistribute a build, follow
-the license of the ffmpeg binaries you ship. Fragloop is not affiliated with
-NVIDIA.
+ffmpeg is not included in this repository. Bundled builds ship FFmpeg under
+GPLv3; see [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). If you
+redistribute a build, follow the license of the ffmpeg binaries you ship.
+Fragloop is not affiliated with NVIDIA.

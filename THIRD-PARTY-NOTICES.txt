@@ -1,0 +1,18 @@
+Fragloop bundles FFmpeg for video encoding and muxing.
+
+FFmpeg
+------
+Bundled version: 9.0.2 essentials build (gyan.dev)
+Project: https://ffmpeg.org/
+Windows builds: https://www.gyan.dev/ffmpeg/builds/
+Source code: https://ffmpeg.org/download.html and
+             https://www.gyan.dev/ffmpeg/builds/#sources
+License: GNU General Public License v3 (GPLv3)
+         https://www.gnu.org/licenses/gpl-3.0.html
+
+The bundled FFmpeg binaries were built with --enable-gpl and
+--enable-version3, so they are distributed under GPLv3. Fragloop's own
+source code is licensed separately; see LICENSE.
+
+If you redistribute a Fragloop build, keep this notice with the binaries
+and follow the FFmpeg license terms.

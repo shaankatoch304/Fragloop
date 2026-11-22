@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$version = '0.1.1'
+$version = '0.2.0'
 Set-Location $root
 
 Get-Process Fragloop -ErrorAction SilentlyContinue | Stop-Process -Force

@@ -31,7 +31,7 @@ THUMB_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "thumbs"
 BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
 
 THUMB_W, THUMB_H = 148, 84
-APP_VERSION = "0.1.1"
+APP_VERSION = "0.2.0"
 
 QSS = """
 QMainWindow { background: transparent; }

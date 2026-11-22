@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - 2026-11-22
 
 - Alt+G start/stop runs off the hotkey thread now: a slow stop no longer
   swallows or queues presses. Repeat presses while busy are ignored instead of
