@@ -23,7 +23,6 @@ FFMPEG = APP_DIR / "ffmpeg.exe"
 FFPROBE = APP_DIR / "ffprobe.exe"
 OUT_DIR = Path(os.environ["USERPROFILE"]) / "Videos" / "Captures"
 THUMB_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "thumbs"
-BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
 
 THUMB_W, THUMB_H = 148, 84
 APP_VERSION = "0.1.1"
@@ -54,11 +53,6 @@ QLabel#emptyTitle { color: #4f586b; font-family: "Segoe UI"; font-size: 15px; fo
 QLabel#emptyHint  { color: #3d4557; font-family: "Segoe UI"; font-size: 12px; }
 QLabel#version { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; }
 QLabel#hint { color: #4f586b; font-family: "Segoe UI"; font-size: 11px; }
-QLabel#status {
-    color: #6f7789; background: #10131a; border: 1px solid #191e27;
-    border-radius: 11px; padding: 4px 10px;
-    font-family: "Segoe UI"; font-size: 11px;
-}
 QScrollBar:vertical { background: transparent; width: 8px; }
 QScrollBar::handle:vertical { background: #262d39; border-radius: 4px; min-height: 30px; }
 QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
@@ -254,9 +248,9 @@ class ClipRow(QWidget):
         name.setObjectName("clipName")
         meta = QLabel()
         meta.setObjectName("clipMeta")
-        size_mb = path.stat().st_size / 2 ** 20
         when = time.strftime("%H:%M", time.localtime(path.stat().st_mtime))
-        meta.setText(f"{clock(duration(path))}  ·  {size_mb:.0f} MB  ·  {when}")
+        meta.setText(f"{clock(duration(path))}  ·  "
+                     f"{size_text(path.stat().st_size)}  ·  {when}")
         text.addStretch(1)
         text.addWidget(name)
         text.addWidget(meta)
@@ -295,7 +289,6 @@ class Studio(QMainWindow):
         if not self.restoreGeometry(self.settings.value("geometry", QByteArray())):
             self.resize(1000, 700)
         self._seen = None
-        self._status_state = None
 
         root = QWidget()
         root.setObjectName("root")
@@ -312,10 +305,6 @@ class Studio(QMainWindow):
         head.addWidget(Logo(30))
         head.addWidget(title)
         head.addStretch(1)
-        self.status = QLabel()
-        self.status.setTextFormat(Qt.RichText)
-        self.status.setAccessibleName("Recorder status")
-        head.addWidget(self.status)
         open_btn = QPushButton("Open folder")
         open_btn.setObjectName("ghost")
         open_btn.clicked.connect(lambda: os.startfile(OUT_DIR))
@@ -389,49 +378,7 @@ class Studio(QMainWindow):
         found.sort(key=lambda item: item[0], reverse=True)
         return [p for _, p in found]
 
-    def _status(self):
-        """Infer engine state from the files it writes; no IPC needed."""
-        try:
-            now = time.time()
-            rec = max(BUFFER_DIR.glob("*.video.mkv"),
-                      key=lambda p: p.stat().st_mtime, default=None)
-            if rec and now - rec.stat().st_mtime < 5:
-                return "recording", now - rec.stat().st_ctime
-            buf = max(BUFFER_DIR.glob("buf_*.mkv"),
-                      key=lambda p: p.stat().st_mtime, default=None)
-            if buf and now - buf.stat().st_mtime < 5:
-                return "on", 0.0
-        except OSError:
-            pass
-        return "off", 0.0
-
-    def _update_status(self):
-        state, elapsed = self._status()
-        text = {"recording": f"Recording {clock(elapsed)}",
-                "on": "Buffer on", "off": "Buffer off"}[state]
-        dot = {"recording": "#ff4d5e", "on": "#3ddc84",
-               "off": "#4f586b"}[state]
-        self.status.setText(f'<span style="color:{dot};">●</span> {text}')
-        if state == self._status_state:
-            return
-        self._status_state = state
-        fg, bg, edge = {
-            "recording": ("#eef1f6", "#1c1216", "#35202a"),
-            "on": ("#c3cad8", "#10131a", "#191e27"),
-            "off": ("#6f7789", "#10131a", "#191e27"),
-        }[state]
-        self.status.setStyleSheet(
-            f"color:{fg}; background:{bg}; border:1px solid {edge};"
-            " border-radius:11px; padding:4px 10px;"
-            ' font-family:"Segoe UI"; font-size:11px;')
-        self.status.setToolTip({
-            "recording": "A manual recording is in progress",
-            "on": "The replay buffer is running",
-            "off": "The recorder is not running",
-        }[state])
-
     def refresh(self):
-        self._update_status()
         files = self.clips()
         key = tuple((p.name, p.stat().st_mtime) for p in files)
         if key == self._seen:
