@@ -10,7 +10,8 @@ import sys
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, QPointF, QSettings, QSize, Qt, QTimer
+from PySide6.QtCore import (QByteArray, QEvent, QPointF, QSettings, QSize, Qt,
+                            QTimer)
 from PySide6.QtGui import (QColor, QIcon, QPainter, QPainterPath, QPen,
                            QPixmap)
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
@@ -28,7 +29,12 @@ THUMB_W, THUMB_H = 148, 84
 APP_VERSION = "0.1.1"
 
 QSS = """
-QWidget#root { background: #0b0d11; }
+QMainWindow { background: transparent; }
+QWidget#root {
+    background: rgba(11, 13, 17, 0.62);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+}
 QLabel#title { color: #eef1f6; font-family: "Segoe UI"; font-size: 21px; font-weight: 600; }
 QLabel#count { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; }
 QFrame#divider { background: #1a1f28; border: none; }
@@ -38,12 +44,19 @@ QPushButton#ghost {
     font-family: "Segoe UI"; font-size: 12px;
 }
 QPushButton#ghost:hover { background: #1a1f29; border-color: #2b3342; }
+QPushButton#winbtn, QPushButton#winbtnClose {
+    color: #8a93a6; background: transparent; border: none;
+    border-radius: 6px; font-family: "Segoe UI"; font-size: 13px;
+}
+QPushButton#winbtn:hover { background: #1a1f29; color: #eef1f6; }
+QPushButton#winbtnClose:hover { background: #3a1a20; color: #ff8a95; }
 QPushButton#del {
     background: transparent; border: 1px solid transparent;
     border-radius: 8px; padding: 0;
 }
 QPushButton#del:hover { background: #1c1216; border-color: #35202a; }
 QScrollArea { border: none; background: transparent; }
+QWidget#qt_scrollarea_viewport { background: transparent; }
 QWidget#clipHost { background: transparent; }
 QWidget#clipRow { background: #10131a; border: 1px solid #191e27; border-radius: 12px; }
 QWidget#clipRow:hover { background: #151a23; border-color: #29313f; }
@@ -165,6 +178,27 @@ def app_icon():
     return icon
 
 
+class Header(QWidget):
+    """Empty header space drags the frameless window; buttons still click."""
+
+    def __init__(self, window):
+        super().__init__()
+        self._window = window
+        self._grab = None
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._grab = event.globalPosition().toPoint() - self._window.pos()
+
+    def mouseMoveEvent(self, event):
+        if self._grab is not None and event.buttons() & Qt.LeftButton:
+            if not self._window.isMaximized():
+                self._window.move(event.globalPosition().toPoint() - self._grab)
+
+    def mouseReleaseEvent(self, event):
+        self._grab = None
+
+
 def trash_icon(color="#8a93a6"):
     """Bin glyph drawn at every size Qt may ask for, so it stays sharp."""
     icon = QIcon()
@@ -284,11 +318,15 @@ class Studio(QMainWindow):
         super().__init__()
         self.setWindowTitle("Fragloop Studio")
         self.setWindowIcon(app_icon())
+        self.setWindowFlag(Qt.FramelessWindowHint, True)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setMinimumSize(760, 520)
         self.settings = QSettings("Fragloop", "Studio")
         if not self.restoreGeometry(self.settings.value("geometry", QByteArray())):
             self.resize(1000, 700)
         self._seen = None
+        self._window_styled = False
+        QApplication.instance().installEventFilter(self)
 
         root = QWidget()
         root.setObjectName("root")
@@ -298,7 +336,9 @@ class Studio(QMainWindow):
         outer.setContentsMargins(22, 20, 22, 18)
         outer.setSpacing(16)
 
-        head = QHBoxLayout()
+        header = Header(self)
+        head = QHBoxLayout(header)
+        head.setContentsMargins(0, 0, 0, 0)
         head.setSpacing(11)
         title = QLabel("Fragloop")
         title.setObjectName("title")
@@ -309,7 +349,18 @@ class Studio(QMainWindow):
         open_btn.setObjectName("ghost")
         open_btn.clicked.connect(lambda: os.startfile(OUT_DIR))
         head.addWidget(open_btn)
-        outer.addLayout(head)
+        for text, tip, slot, name in (
+                ("\u2212", "Minimize", self.showMinimized, "winbtn"),
+                ("\u25a1", "Maximize", self.toggle_max, "winbtn"),
+                ("\u2715", "Close", self.close, "winbtnClose")):
+            btn = QPushButton(text)
+            btn.setObjectName(name)
+            btn.setToolTip(tip)
+            btn.setFixedSize(30, 28)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.clicked.connect(slot)
+            head.addWidget(btn)
+        outer.addWidget(header)
 
         divider = QFrame()
         divider.setObjectName("divider")
@@ -362,6 +413,45 @@ class Studio(QMainWindow):
         self.timer.timeout.connect(self.refresh)
         self.timer.start(2000)
         self.refresh()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._window_styled:
+            return
+        self._window_styled = True
+        hwnd = int(self.winId())
+        try:
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                ctypes.c_void_p(hwnd), 33,
+                ctypes.byref(ctypes.c_int(2)), 4)   # DWMWCP_ROUND
+        except (AttributeError, OSError):
+            pass
+
+    def toggle_max(self):
+        if self.isMaximized():
+            self.showNormal()
+        else:
+            self.showMaximized()
+
+    def eventFilter(self, obj, event):
+        if (event.type() == QEvent.MouseButtonPress
+                and event.button() == Qt.LeftButton
+                and isinstance(obj, QWidget) and obj.window() is self
+                and not self.isMaximized()):
+            pos = event.globalPosition().toPoint() - self.pos()
+            edges = Qt.Edges()
+            if pos.x() <= 6:
+                edges |= Qt.LeftEdge
+            if pos.x() >= self.width() - 6:
+                edges |= Qt.RightEdge
+            if pos.y() <= 6:
+                edges |= Qt.TopEdge
+            if pos.y() >= self.height() - 6:
+                edges |= Qt.BottomEdge
+            if edges:
+                self.windowHandle().startSystemResize(edges)
+                return True
+        return super().eventFilter(obj, event)
 
     def clips(self):
         OUT_DIR.mkdir(parents=True, exist_ok=True)

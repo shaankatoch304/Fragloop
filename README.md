@@ -29,8 +29,9 @@ Choose **More info → Run anyway**.
 - **Five-minute replay buffer** — two-second segments, saved in seconds.
 - **System audio** — WASAPI loopback, no microphone. Switches automatically when
   you change the Windows default output device.
-- **Native window and tray** — clip library with thumbnails, clip count and
-  total size, hotkeys that work while a game has focus.
+- **Native window and tray** — a frameless, translucent clip library with
+  thumbnails, clip count and total size, and hotkeys that work while a game
+  has focus.
 - **MP4 (10-bit HEVC + AAC)** — roughly half the H.264 size at the same
   quality. Windows needs the free HEVC Video Extension (or VLC/MPC) to play it.
 

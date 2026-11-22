@@ -5,6 +5,9 @@
 - Alt+G start/stop runs off the hotkey thread now: a slow stop no longer
   swallows or queues presses. Repeat presses while busy are ignored instead of
   replaying as a burst of start/stop toggles.
+- Studio is now a frameless, translucent window: the desktop shows through the
+  dark panel, with custom minimize, maximize and close controls and edge
+  resizing.
 - Studio shows the clip count with total size, a persistent hotkey hint, and
   remembers its window size and position. Clip sizes switch from MB to GB
   above 1024 MB.
