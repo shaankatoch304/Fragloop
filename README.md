@@ -33,6 +33,7 @@ Choose **More info → Run anyway**.
 - **System audio** — WASAPI loopback, no microphone. Switches automatically when
   you change the Windows default output device.
 - **Screenshots** — `Alt+F` saves a PNG of the display to `Videos\Captures`.
+  Screenshots show up in the library on a warm glass card with a camera badge.
 - **Native window and tray** - a frameless, translucent clip library with
   thumbnails, clip count and total size, a preferences window for appearance,
   clips and storage, and hotkeys that work while a game has focus.

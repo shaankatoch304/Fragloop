@@ -11,6 +11,8 @@
 - Window controls are larger, and Close is now a red record dot instead of
   an X, matching the app mark.
 - `Alt+F` saves a PNG screenshot of the display to `Videos\Captures`.
+- Screenshots appear in the main library with a warm glass card and a camera
+  badge, so they read differently from clips.
 - The main window no longer shows hotkey hints; they stay in Preferences.
 
 ## 0.2.0 - 2026-11-22

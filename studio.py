@@ -127,6 +127,26 @@ QWidget#qt_scrollarea_viewport { background: transparent; }
 QWidget#clipHost { background: transparent; }
 QWidget#clipRow { background: #10131a; border: 1px solid #191e27; border-radius: 16px; }
 QWidget#clipRow:hover { background: #151a23; border-color: #29313f; }
+QWidget#shotRow {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 rgba(255, 216, 140, 0.075),
+        stop:0.55 rgba(255, 206, 112, 0.040),
+        stop:1 rgba(255, 232, 176, 0.060));
+    border: 1px solid rgba(255, 214, 140, 0.18);
+    border-radius: 16px;
+}
+QWidget#shotRow:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 rgba(255, 216, 140, 0.11),
+        stop:0.55 rgba(255, 206, 112, 0.060),
+        stop:1 rgba(255, 232, 176, 0.090));
+    border-color: rgba(255, 220, 150, 0.28);
+}
+QLabel#shotBadge {
+    background: rgba(255, 214, 140, 0.10);
+    border: 1px solid rgba(255, 214, 140, 0.18);
+    border-radius: 8px;
+}
 QLabel#clipName { color: #e6e9f0; font-family: "Segoe UI"; font-size: 13px; font-weight: 600; }
 QLabel#clipMeta { color: #79829a; font-family: "Segoe UI"; font-size: 11px; }
 QLabel#emptyTitle { color: #4f586b; font-family: "Segoe UI"; font-size: 15px; font-weight: 600; }
@@ -148,6 +168,8 @@ _durations = {}
 
 def duration(path):
     """Probe once per file version; a refresh rebuilds every row."""
+    if path.suffix.lower() == ".png":
+        return 0.0
     try:
         st = path.stat()
         key = (str(path), st.st_mtime, st.st_size)
@@ -168,6 +190,18 @@ def duration(path):
 def thumbnail(path):
     """A frame 10% in, cached next to the app data."""
     THUMB_DIR.mkdir(parents=True, exist_ok=True)
+    if path.suffix.lower() == ".png":
+        dest = THUMB_DIR / f"{path.stem}_{int(path.stat().st_mtime)}_shot.png"
+        if not dest.exists():
+            img = QImage(str(path))
+            if img.isNull():
+                return None
+            img = img.scaled(THUMB_W * 2, THUMB_H * 2,
+                             Qt.KeepAspectRatioByExpanding,
+                             Qt.SmoothTransformation)
+            if not img.save(str(dest)):
+                return None
+        return dest if dest.exists() else None
     dest = THUMB_DIR / f"{path.stem}_{int(path.stat().st_mtime)}_v2.png"
     if not dest.exists():
         dur = duration(path)
@@ -197,7 +231,11 @@ def clock(seconds):
 
 
 def size_text(n):
-    return f"{n / 2**30:.2f} GB" if n >= 2**30 else f"{n / 2**20:.0f} MB"
+    if n >= 2**30:
+        return f"{n / 2**30:.2f} GB"
+    if n >= 2**20:
+        return f"{n / 2**20:.0f} MB"
+    return f"{max(1, round(n / 2**10))} KB"
 
 
 def replay_length_text(seconds):
@@ -784,6 +822,29 @@ def trash_icon(color="#8a93a6"):
     return icon
 
 
+def camera_pixmap(size=18, color="#e3c07f"):
+    """Camera glyph at 2x, so it stays sharp on scaled displays."""
+    dpr = 2.0
+    pm = QPixmap(round(size * dpr), round(size * dpr))
+    pm.setDevicePixelRatio(dpr)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    k = pm.width() / 24.0
+    pen = QPen(QColor(color), 1.7 * k)
+    pen.setCapStyle(Qt.RoundCap)
+    pen.setJoinStyle(Qt.RoundJoin)
+    p.setPen(pen)
+    p.setBrush(Qt.NoBrush)
+    p.drawRoundedRect(QRectF(2.5 * k, 7 * k, 19 * k, 12 * k), 3 * k, 3 * k)
+    p.drawLine(QPointF(8 * k, 7 * k), QPointF(9.5 * k, 4 * k))
+    p.drawLine(QPointF(9.5 * k, 4 * k), QPointF(14.5 * k, 4 * k))
+    p.drawLine(QPointF(14.5 * k, 4 * k), QPointF(16 * k, 7 * k))
+    p.drawEllipse(QPointF(12 * k, 13 * k), 4 * k, 4 * k)
+    p.end()
+    return pm
+
+
 class Logo(QWidget):
     """Painted at the widget's real pixel size so it never clips or blurs."""
 
@@ -805,7 +866,8 @@ class ClipRow(QWidget):
         self.path = path
         self._on_delete = on_delete
         self._confirm = confirm
-        self.setObjectName("clipRow")
+        self.shot = path.suffix.lower() == ".png"
+        self.setObjectName("shotRow" if self.shot else "clipRow")
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setFixedHeight(THUMB_H + 20)
         self.setCursor(Qt.PointingHandCursor)
@@ -832,13 +894,25 @@ class ClipRow(QWidget):
         meta = QLabel()
         meta.setObjectName("clipMeta")
         when = time.strftime("%H:%M", time.localtime(path.stat().st_mtime))
-        meta.setText(f"{clock(duration(path))}  ·  "
-                     f"{size_text(path.stat().st_size)}  ·  {when}")
+        size = size_text(path.stat().st_size)
+        if self.shot:
+            meta.setText(f"Screenshot  ·  {size}  ·  {when}")
+        else:
+            meta.setText(f"{clock(duration(path))}  ·  {size}  ·  {when}")
         text.addStretch(1)
         text.addWidget(name)
         text.addWidget(meta)
         text.addStretch(1)
         lay.addLayout(text, 1)
+
+        if self.shot:
+            badge = QLabel()
+            badge.setObjectName("shotBadge")
+            badge.setFixedSize(28, 28)
+            badge.setAlignment(Qt.AlignCenter)
+            badge.setPixmap(camera_pixmap(16))
+            badge.setToolTip("Screenshot")
+            lay.addWidget(badge, 0, Qt.AlignTop)
 
         remove = QPushButton()
         remove.setObjectName("del")
@@ -846,8 +920,11 @@ class ClipRow(QWidget):
         remove.setIconSize(QSize(18, 18))
         remove.setFixedSize(34, 30)
         remove.setCursor(Qt.PointingHandCursor)
-        remove.setToolTip("Delete clip (moves it to the Recycle Bin)")
-        remove.setAccessibleName("Delete clip")
+        remove.setToolTip("Delete screenshot (moves it to the Recycle Bin)"
+                          if self.shot else
+                          "Delete clip (moves it to the Recycle Bin)")
+        remove.setAccessibleName("Delete screenshot" if self.shot
+                                 else "Delete clip")
         remove.clicked.connect(self._delete)
         lay.addWidget(remove)
 
@@ -1058,7 +1135,7 @@ class Studio(QMainWindow):
         now = time.time()
         found = []
         for p in OUT_DIR.iterdir():
-            if not (p.is_file() and p.suffix.lower() in (".mp4", ".mkv")):
+            if not (p.is_file() and p.suffix.lower() in (".mp4", ".mkv", ".png")):
                 continue
             mtime = p.stat().st_mtime
             # A save is muxed straight into Captures; hide it until the last
@@ -1093,7 +1170,7 @@ class Studio(QMainWindow):
                 total = sum(p.stat().st_size for p in files)
             except OSError:
                 total = 0
-            self.count.setText(f"{len(files)} clip{'s' if len(files) != 1 else ''}"
+            self.count.setText(f"{len(files)} item{'s' if len(files) != 1 else ''}"
                                f"  ·  {size_text(total)}")
         else:
             self.count.setText("")
