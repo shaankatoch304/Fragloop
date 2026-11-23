@@ -45,7 +45,7 @@ QLabel#count { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; }
 QFrame#divider { background: #1a1f28; border: none; }
 QPushButton#winbtn, QPushButton#winbtnClose {
     color: #8a93a6; background: transparent; border: none;
-    border-radius: 9px; font-family: "Segoe UI"; font-size: 13px;
+    border-radius: 10px; font-family: "Segoe UI"; font-size: 18px;
 }
 QPushButton#winbtn:hover { background: #1a1f29; color: #eef1f6; }
 QPushButton#winbtnClose:hover { background: #3a1a20; color: #ff8a95; }
@@ -387,6 +387,29 @@ class Check(QCheckBox):
         p.end()
 
 
+class CloseDot(QPushButton):
+    """Close control drawn as a record dot, like the app mark."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("winbtnClose")
+        self.setFixedSize(36, 32)
+        self.setToolTip("Close")
+        self.setAccessibleName("Close")
+        self.setCursor(Qt.PointingHandCursor)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor("#ff8a95" if self.underMouse() else "#ff4d5e"))
+        d = 12
+        p.drawEllipse(QRectF((self.width() - d) / 2,
+                             (self.height() - d) / 2, d, d))
+        p.end()
+
+
 class Settings(QDialog):
     """Preferences: a section rail on the left, settings on the right."""
 
@@ -421,11 +444,7 @@ class Settings(QDialog):
         title.setObjectName("prefsTitle")
         head.addWidget(title)
         head.addStretch(1)
-        close = QPushButton("\u2715")
-        close.setObjectName("winbtnClose")
-        close.setFixedSize(30, 28)
-        close.setToolTip("Close")
-        close.setCursor(Qt.PointingHandCursor)
+        close = CloseDot(self)
         close.clicked.connect(self.close)
         head.addWidget(close)
         outer.addWidget(header)
@@ -891,22 +910,22 @@ class Studio(QMainWindow):
         head.addStretch(1)
         gear = QPushButton()
         gear.setObjectName("winbtn")
-        gear.setIcon(QIcon(gear_pixmap(18)))
-        gear.setIconSize(QSize(18, 18))
+        gear.setIcon(QIcon(gear_pixmap(20)))
+        gear.setIconSize(QSize(20, 20))
         gear.setToolTip("Settings (Ctrl+,)")
         gear.setAccessibleName("Settings")
-        gear.setFixedSize(30, 28)
+        gear.setFixedSize(36, 32)
         gear.setCursor(Qt.PointingHandCursor)
         gear.clicked.connect(self.open_settings)
         head.addWidget(gear)
         for text, tip, slot, name in (
                 ("\u2212", "Minimize", self.showMinimized, "winbtn"),
                 ("\u25a1", "Maximize", self.toggle_max, "winbtn"),
-                ("\u2715", "Close", self.close, "winbtnClose")):
-            btn = QPushButton(text)
+                ("", "Close", self.close, "winbtnClose")):
+            btn = CloseDot(self) if name == "winbtnClose" else QPushButton(text)
             btn.setObjectName(name)
             btn.setToolTip(tip)
-            btn.setFixedSize(30, 28)
+            btn.setFixedSize(36, 32)
             btn.setCursor(Qt.PointingHandCursor)
             btn.clicked.connect(slot)
             head.addWidget(btn)

@@ -8,6 +8,8 @@
 - Rounded surfaces got a softer, roomier look: the window and Preferences
   panels use 18 px corners, clip cards 16 px, and controls and menus 7-10 px,
   with more breathing room around the header and clip list.
+- Window controls are larger, and Close is now a red record dot instead of
+  an X, matching the app mark.
 
 ## 0.2.0 - 2026-11-22
 
