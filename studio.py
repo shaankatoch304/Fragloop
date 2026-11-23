@@ -143,8 +143,8 @@ QWidget#shotRow:hover {
     border-color: rgba(255, 220, 150, 0.28);
 }
 QLabel#shotBadge {
-    background: rgba(255, 214, 140, 0.10);
-    border: 1px solid rgba(255, 214, 140, 0.18);
+    background: rgba(255, 214, 140, 0.13);
+    border: 1px solid rgba(255, 214, 140, 0.30);
     border-radius: 6px;
 }
 QLabel#clipName { color: #e6e9f0; font-family: "Segoe UI"; font-size: 13px; font-weight: 600; }
@@ -785,16 +785,17 @@ class Settings(QDialog):
         self.studio.refresh()
 
 
-def trash_icon(color="#8a93a6"):
-    """Bin glyph drawn at every size Qt may ask for, so it stays sharp."""
+def trash_icon(color="#aeb8ca"):
+    """Bin glyph at 2x, so it stays sharp on scaled displays."""
     icon = QIcon()
     for size in (16, 20, 24, 32):
-        pm = QPixmap(size, size)
+        pm = QPixmap(size * 2, size * 2)
+        pm.setDevicePixelRatio(2.0)
         pm.fill(Qt.transparent)
         p = QPainter(pm)
         p.setRenderHint(QPainter.Antialiasing)
         k = size / 32.0
-        pen = QPen(QColor(color), max(1.3, 2.2 * k))
+        pen = QPen(QColor(color), max(1.5, 2.6 * k))
         pen.setCapStyle(Qt.RoundCap)
         pen.setJoinStyle(Qt.RoundJoin)
         p.setPen(pen)
@@ -822,7 +823,7 @@ def trash_icon(color="#8a93a6"):
     return icon
 
 
-def camera_pixmap(size=18, color="#e3c07f"):
+def camera_pixmap(size=18, color="#f0cd8b"):
     """Camera glyph at 2x, so it stays sharp on scaled displays."""
     dpr = 2.0
     pm = QPixmap(round(size * dpr), round(size * dpr))
@@ -831,7 +832,7 @@ def camera_pixmap(size=18, color="#e3c07f"):
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
     k = size / 24.0
-    pen = QPen(QColor(color), max(1.1, 1.7 * k))
+    pen = QPen(QColor(color), max(1.3, 2.0 * k))
     pen.setCapStyle(Qt.RoundCap)
     pen.setJoinStyle(Qt.RoundJoin)
     p.setPen(pen)
