@@ -830,8 +830,8 @@ def camera_pixmap(size=18, color="#e3c07f"):
     pm.fill(Qt.transparent)
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
-    k = pm.width() / 24.0
-    pen = QPen(QColor(color), 1.7 * k)
+    k = size / 24.0
+    pen = QPen(QColor(color), max(1.1, 1.7 * k))
     pen.setCapStyle(Qt.RoundCap)
     pen.setJoinStyle(Qt.RoundJoin)
     p.setPen(pen)
