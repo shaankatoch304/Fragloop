@@ -145,7 +145,7 @@ QWidget#shotRow:hover {
 QLabel#shotBadge {
     background: rgba(255, 214, 140, 0.13);
     border: 1px solid rgba(255, 214, 140, 0.30);
-    border-radius: 6px;
+    border-radius: 7px;
 }
 QLabel#clipName { color: #e6e9f0; font-family: "Segoe UI"; font-size: 13px; font-weight: 600; }
 QLabel#clipMeta { color: #79829a; font-family: "Segoe UI"; font-size: 11px; }
@@ -824,7 +824,7 @@ def trash_icon(color="#aeb8ca"):
 
 
 def camera_pixmap(size=18, color="#f0cd8b"):
-    """Camera glyph at 2x, so it stays sharp on scaled displays."""
+    """Clean camera outline at 2x, so it stays sharp on scaled displays."""
     dpr = 2.0
     pm = QPixmap(round(size * dpr), round(size * dpr))
     pm.setDevicePixelRatio(dpr)
@@ -832,16 +832,16 @@ def camera_pixmap(size=18, color="#f0cd8b"):
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
     k = size / 24.0
-    pen = QPen(QColor(color), max(1.3, 2.0 * k))
+    pen = QPen(QColor(color), max(1.2, 1.6 * k))
     pen.setCapStyle(Qt.RoundCap)
     pen.setJoinStyle(Qt.RoundJoin)
     p.setPen(pen)
     p.setBrush(Qt.NoBrush)
-    p.drawRoundedRect(QRectF(2.5 * k, 7 * k, 19 * k, 12 * k), 3 * k, 3 * k)
-    p.drawLine(QPointF(8 * k, 7 * k), QPointF(9.5 * k, 4 * k))
-    p.drawLine(QPointF(9.5 * k, 4 * k), QPointF(14.5 * k, 4 * k))
-    p.drawLine(QPointF(14.5 * k, 4 * k), QPointF(16 * k, 7 * k))
-    p.drawEllipse(QPointF(12 * k, 13 * k), 4 * k, 4 * k)
+    p.drawRoundedRect(QRectF(3.2 * k, 8 * k, 17.6 * k, 10.8 * k), 2.8 * k, 2.8 * k)
+    p.drawLine(QPointF(9 * k, 8 * k), QPointF(10 * k, 5.2 * k))
+    p.drawLine(QPointF(10 * k, 5.2 * k), QPointF(14 * k, 5.2 * k))
+    p.drawLine(QPointF(14 * k, 5.2 * k), QPointF(15 * k, 8 * k))
+    p.drawEllipse(QPointF(12 * k, 13.3 * k), 3 * k, 3 * k)
     p.end()
     return pm
 
@@ -909,9 +909,9 @@ class ClipRow(QWidget):
         if self.shot:
             badge = QLabel()
             badge.setObjectName("shotBadge")
-            badge.setFixedSize(22, 22)
+            badge.setFixedSize(24, 24)
             badge.setAlignment(Qt.AlignCenter)
-            badge.setPixmap(camera_pixmap(12))
+            badge.setPixmap(camera_pixmap(13))
             badge.setToolTip("Screenshot")
             lay.addWidget(badge, 0, Qt.AlignTop)
 
