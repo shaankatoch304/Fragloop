@@ -13,7 +13,8 @@
 - `Alt+F` saves a PNG screenshot of the display to `Videos\Captures`.
 - Screenshots appear in the main library with a warm glass card and a camera
   badge, so they read differently from clips.
-- New screenshots show up in the library immediately after capture.
+- New screenshots show up in the library immediately after capture; the
+  single-frame grab now finishes in about a quarter second instead of two.
 - The main window no longer shows hotkey hints; they stay in Preferences.
 
 ## 0.2.0 - 2026-11-22
