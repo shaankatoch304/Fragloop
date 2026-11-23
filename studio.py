@@ -145,7 +145,7 @@ QWidget#shotRow:hover {
 QLabel#shotBadge {
     background: rgba(255, 214, 140, 0.10);
     border: 1px solid rgba(255, 214, 140, 0.18);
-    border-radius: 8px;
+    border-radius: 6px;
 }
 QLabel#clipName { color: #e6e9f0; font-family: "Segoe UI"; font-size: 13px; font-weight: 600; }
 QLabel#clipMeta { color: #79829a; font-family: "Segoe UI"; font-size: 11px; }
@@ -908,9 +908,9 @@ class ClipRow(QWidget):
         if self.shot:
             badge = QLabel()
             badge.setObjectName("shotBadge")
-            badge.setFixedSize(28, 28)
+            badge.setFixedSize(22, 22)
             badge.setAlignment(Qt.AlignCenter)
-            badge.setPixmap(camera_pixmap(16))
+            badge.setPixmap(camera_pixmap(12))
             badge.setToolTip("Screenshot")
             lay.addWidget(badge, 0, Qt.AlignTop)
 
