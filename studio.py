@@ -12,8 +12,8 @@ import sys
 import time
 from pathlib import Path
 
-from PySide6.QtCore import (QByteArray, QEvent, QPointF, QRectF, QSettings,
-                            QSize, Qt, QTimer)
+from PySide6.QtCore import (QByteArray, QEvent, QFileSystemWatcher, QPointF,
+                            QRectF, QSettings, QSize, Qt, QTimer)
 from PySide6.QtGui import (QColor, QIcon, QImage, QKeySequence, QPainter,
                            QPainterPath, QPen, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
@@ -1048,9 +1048,13 @@ class Studio(QMainWindow):
         foot.addWidget(ver)
         outer.addLayout(foot)
 
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        self.watcher = QFileSystemWatcher([str(OUT_DIR)], self)
+        self.watcher.directoryChanged.connect(self.refresh)
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh)
-        self.timer.start(2000)
+        self.timer.start(1000)
         self.refresh()
 
     def showEvent(self, event):
@@ -1136,13 +1140,19 @@ class Studio(QMainWindow):
         now = time.time()
         found = []
         for p in OUT_DIR.iterdir():
-            if not (p.is_file() and p.suffix.lower() in (".mp4", ".mkv", ".png")):
+            if not p.is_file():
+                continue
+            suffix = p.suffix.lower()
+            if (suffix not in (".mp4", ".mkv", ".png")
+                    or p.name.endswith(".part.png")):
                 continue
             mtime = p.stat().st_mtime
-            # A save is muxed straight into Captures; hide it until the last
-            # write so the list does not rebuild a growing clip every 2 s.
-            if now - mtime >= 2:
-                found.append((mtime, p))
+            # A save is muxed straight into Captures; hide it for 2 s so the
+            # list does not rebuild a growing clip on every refresh.
+            # Screenshots are renamed into place, so they are safe at once.
+            if suffix != ".png" and now - mtime < 2:
+                continue
+            found.append((mtime, p))
         found.sort(key=lambda item: item[0],
                    reverse=self.settings.value("sort_newest", True, bool))
         return [p for _, p in found]

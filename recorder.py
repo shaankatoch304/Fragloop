@@ -729,24 +729,29 @@ def _screenshot(icon=None, item=None):
 def _take_screenshot():
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     out = OUT_DIR / f"{stamp}_screenshot.png"
+    tmp = out.with_name(out.stem + ".part.png")
     n = 2
-    while out.exists():
+    while out.exists() or tmp.exists():
         out = OUT_DIR / f"{stamp}_screenshot_{n}.png"
+        tmp = out.with_name(out.stem + ".part.png")
         n += 1
+    # Write beside the final name, then rename, so the library never shows a
+    # half-written PNG.
     try:
         r = subprocess.run(
             [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
              "-f", "lavfi", "-i", "ddagrab=output_idx=0:framerate=1",
-             "-vf", "hwdownload,format=bgra", "-frames:v", "1", str(out)],
+             "-vf", "hwdownload,format=bgra", "-frames:v", "1", str(tmp)],
             creationflags=subprocess.CREATE_NO_WINDOW, timeout=20)
-        if r.returncode == 0 and out.exists() and out.stat().st_size > 0:
+        if r.returncode == 0 and tmp.exists() and tmp.stat().st_size > 0:
+            os.replace(tmp, out)
             _log(f"screenshot saved: {out.name}")
             _notify(f"Screenshot saved: {out.name}")
             return
         _log(f"screenshot failed ({r.returncode})")
     except Exception as e:
         _log(f"screenshot failed: {e!r}")
-    out.unlink(missing_ok=True)
+    tmp.unlink(missing_ok=True)
     _notify("Screenshot failed - see recorder.log")
 
 
