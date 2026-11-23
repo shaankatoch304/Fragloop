@@ -3,7 +3,8 @@
 Alt+G starts/stops. Records the primary display at a constant 120 fps with
 NVENC straight from the GPU and system audio via WASAPI loopback (never the
 mic). Alt+P saves the last 1-15 minutes (5 by default) from the replay
-buffer. Files land in Videos\\Captures as .mp4.
+buffer. Alt+F saves a PNG screenshot. Files land in Videos\\Captures as .mp4
+or .png.
 """
 import ctypes
 import ctypes.wintypes
@@ -54,6 +55,7 @@ VIDEO_MAXRATE = "110M"         # peaks for complex motion; average stays ~80
 CODEC = "hevc_nvenc"           # 10-bit HEVC: ~2x smaller than H.264 at the
                                # same quality, but needs the HEVC extension
 HOTKEY_VK = 0x47               # G
+SHOT_VK = 0x46                 # F
 HOTKEY_MODS = 0x0001 | 0x4000  # Alt | MOD_NOREPEAT
 
 BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
@@ -719,6 +721,35 @@ def _save_replay():
             _save_lock.release()
 
 
+def _screenshot(icon=None, item=None):
+    # ffmpeg takes a couple of seconds; keep the hotkey loop free.
+    threading.Thread(target=_take_screenshot, daemon=True).start()
+
+
+def _take_screenshot():
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    out = OUT_DIR / f"{stamp}_screenshot.png"
+    n = 2
+    while out.exists():
+        out = OUT_DIR / f"{stamp}_screenshot_{n}.png"
+        n += 1
+    try:
+        r = subprocess.run(
+            [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
+             "-f", "lavfi", "-i", "ddagrab=output_idx=0:framerate=1",
+             "-vf", "hwdownload,format=bgra", "-frames:v", "1", str(out)],
+            creationflags=subprocess.CREATE_NO_WINDOW, timeout=20)
+        if r.returncode == 0 and out.exists() and out.stat().st_size > 0:
+            _log(f"screenshot saved: {out.name}")
+            _notify(f"Screenshot saved: {out.name}")
+            return
+        _log(f"screenshot failed ({r.returncode})")
+    except Exception as e:
+        _log(f"screenshot failed: {e!r}")
+    out.unlink(missing_ok=True)
+    _notify("Screenshot failed - see recorder.log")
+
+
 def _toggle_buffer(icon=None, item=None):
     if _recording:
         _notify("Stop the recording before changing the buffer")
@@ -882,7 +913,9 @@ def _hotkey_loop():
     keys = [("Alt+G", HOTKEY_MODS, HOTKEY_VK),
             ("Ctrl+Alt+G", 0x0002 | HOTKEY_MODS, HOTKEY_VK),
             ("Alt+P", HOTKEY_MODS, 0x50),
-            ("Ctrl+Alt+P", 0x0002 | HOTKEY_MODS, 0x50)]
+            ("Ctrl+Alt+P", 0x0002 | HOTKEY_MODS, 0x50),
+            ("Alt+F", HOTKEY_MODS, SHOT_VK),
+            ("Ctrl+Alt+F", 0x0002 | HOTKEY_MODS, SHOT_VK)]
     ok = False
     for i, (name, mods, vk) in enumerate(keys, start=1):
         if user32.RegisterHotKey(None, i, mods, vk):
@@ -899,7 +932,9 @@ def _hotkey_loop():
             hid = int(msg.wParam)
             try:
                 _log(f"hotkey {hid} pressed")
-                if hid >= 3:
+                if hid >= 5:
+                    _screenshot()
+                elif hid >= 3:
                     _buffer_save()
                 else:
                     _toggle()
@@ -932,6 +967,7 @@ def main():
         pystray.Menu(
             pystray.MenuItem("Start / stop (Alt+G)", _toggle, default=True),
             pystray.MenuItem("Save replay now (Alt+P)", _buffer_save),
+            pystray.MenuItem("Take screenshot (Alt+F)", _screenshot),
             pystray.MenuItem("Replay buffer on/off", _toggle_buffer,
                              checked=lambda item: _buffer_on),
             pystray.MenuItem("Open captures folder", lambda: os.startfile(str(OUT_DIR))),

@@ -545,6 +545,7 @@ class Settings(QDialog):
 
         self.section(lay, "Recording")
         self.info(lay, "Save replay", "Alt + P", True)
+        self.info(lay, "Take screenshot", "Alt + F", True)
         self.info(lay, "Start or stop recording", "Alt + G", True)
 
         row = QHBoxLayout()
@@ -962,7 +963,7 @@ class Studio(QMainWindow):
         t.setAlignment(Qt.AlignCenter)
         self.empty_hint = QLabel(
             f"Alt+G records  ·  Alt+P saves the last "
-            f"{replay_length_text(self.replay_seconds)}")
+            f"{replay_length_text(self.replay_seconds)}  ·  Alt+F screenshot")
         self.empty_hint.setObjectName("emptyHint")
         self.empty_hint.setAlignment(Qt.AlignCenter)
         el.addWidget(t)
@@ -971,7 +972,7 @@ class Studio(QMainWindow):
         outer.addWidget(self.empty, 1)
 
         foot = QHBoxLayout()
-        self.hint = QLabel("Alt+G record  ·  Alt+P save replay")
+        self.hint = QLabel("Alt+G record  ·  Alt+P save replay  ·  Alt+F screenshot")
         self.hint.setObjectName("hint")
         foot.addWidget(self.hint)
         foot.addStretch(1)
@@ -1015,7 +1016,7 @@ class Studio(QMainWindow):
         self.replay_seconds = seconds
         self.empty_hint.setText(
             f"Alt+G records  ·  Alt+P saves the last "
-            f"{replay_length_text(seconds)}")
+            f"{replay_length_text(seconds)}  ·  Alt+F screenshot")
 
     def set_always_on_top(self, on):
         try:

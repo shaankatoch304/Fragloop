@@ -8,7 +8,7 @@ from 1 to 15 minutes.
 Fragloop records your display at a constant 120 fps straight from the GPU and
 keeps a rolling buffer (5 minutes by default, up to 15). Press `Alt+P` and the
 buffer is saved as an MP4 — no need to have been recording. `Alt+G` records
-manually.
+manually, and `Alt+F` saves a PNG screenshot.
 
 ## Download
 
@@ -32,6 +32,7 @@ Choose **More info → Run anyway**.
   (5 minutes by default), two-second segments, saved in seconds.
 - **System audio** — WASAPI loopback, no microphone. Switches automatically when
   you change the Windows default output device.
+- **Screenshots** — `Alt+F` saves a PNG of the display to `Videos\Captures`.
 - **Native window and tray** - a frameless, translucent clip library with
   thumbnails, clip count and total size, a preferences window for appearance,
   clips and storage, and hotkeys that work while a game has focus.
@@ -57,6 +58,7 @@ Tested on Windows 11, RTX 5070 Ti Laptop GPU, 2560x1600 @ 240 Hz.
 | --- | --- |
 | `Alt+G` / `Ctrl+Alt+G` | Start / stop a manual recording |
 | `Alt+P` / `Ctrl+Alt+P` | Save the replay buffer (last 1–15 minutes) |
+| `Alt+F` / `Ctrl+Alt+F` | Save a PNG screenshot |
 
 Clips are written to `Videos\Captures`. Settings live at the top of
 `recorder.py` (`RECORD_FPS`, `VIDEO_BITRATE`, `VIDEO_MAXRATE`, `SEGMENT_SECONDS`).
@@ -121,8 +123,8 @@ device. If the game selects a different device in its own settings, or uses
 WASAPI exclusive mode, loopback will not hear it. Everything else is captured,
 including Bluetooth headphones.
 
-**Hotkeys do nothing.** Another application owns `Alt+G`/`Alt+P`. Close it or
-change `HOTKEY_VK` in `recorder.py`.
+**Hotkeys do nothing.** Another application owns `Alt+G`/`Alt+P`/`Alt+F`.
+Close it or change `HOTKEY_VK` in `recorder.py`.
 
 **The buffer stopped by itself.** Check `%LOCALAPPDATA%\Fragloop\recorder.log`.
 The usual causes are low disk space, a missing/broken ffmpeg, or another process
