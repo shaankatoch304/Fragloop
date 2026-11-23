@@ -38,19 +38,20 @@ QMainWindow { background: transparent; }
 QWidget#root {
     background: rgba(11, 13, 17, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 12px;
+    border-radius: 18px;
 }
 QLabel#title { color: #eef1f6; font-family: "Segoe UI"; font-size: 21px; font-weight: 600; }
 QLabel#count { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; }
 QFrame#divider { background: #1a1f28; border: none; }
 QPushButton#winbtn, QPushButton#winbtnClose {
     color: #8a93a6; background: transparent; border: none;
-    border-radius: 6px; font-family: "Segoe UI"; font-size: 13px;
+    border-radius: 9px; font-family: "Segoe UI"; font-size: 13px;
 }
 QPushButton#winbtn:hover { background: #1a1f29; color: #eef1f6; }
 QPushButton#winbtnClose:hover { background: #3a1a20; color: #ff8a95; }
 QWidget#prefs {
-    background: #0b0d11; border: 1px solid #222835; border-radius: 12px;
+    background: #0b0d11; border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
 }
 QLabel#prefsTitle { color: #eef1f6; font-family: "Segoe UI"; font-size: 15px; font-weight: 600; }
 QLabel#pageTitle { color: #eef1f6; font-family: "Segoe UI"; font-size: 19px; font-weight: 600; }
@@ -59,7 +60,7 @@ QLabel#rowLabel { color: #c3cad8; font-family: "Segoe UI"; font-size: 12px; }
 QLabel#rowValue { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; }
 QLabel#keycap {
     color: #c3cad8; background: #14181f; border: 1px solid #222835;
-    border-radius: 5px; padding: 2px 7px;
+    border-radius: 7px; padding: 3px 8px;
     font-family: "Consolas"; font-size: 11px;
 }
 QLabel#path { color: #79829a; font-family: "Segoe UI"; font-size: 11px; }
@@ -69,13 +70,13 @@ QListWidget#nav {
     background: transparent; border: none;
     font-family: "Segoe UI"; font-size: 12px; outline: none;
 }
-QListWidget#nav::item { color: #aab2c4; padding: 8px 12px; border-radius: 7px; }
+QListWidget#nav::item { color: #aab2c4; padding: 10px 14px; border-radius: 10px; }
 QListWidget#nav::item:hover { background: #14181f; color: #eef1f6; }
 QListWidget#nav::item:selected { background: #1a1f29; color: #eef1f6; }
 QFrame#navline { background: #222835; border: none; }
 QPushButton#setOpen {
     color: #c3cad8; background: #14181f; border: 1px solid #222835;
-    border-radius: 7px; padding: 5px 12px;
+    border-radius: 10px; padding: 6px 14px;
     font-family: "Segoe UI"; font-size: 11px;
 }
 QPushButton#setOpen:hover { background: #1a1f29; border-color: #2b3342; }
@@ -94,12 +95,12 @@ QCheckBox {
 }
 QCheckBox::indicator {
     width: 16px; height: 16px; border: 1px solid #2b3342;
-    border-radius: 4px; background: #14181f;
+    border-radius: 5px; background: #14181f;
 }
 QCheckBox::indicator:checked { background: #ff4d5e; border-color: #ff4d5e; }
 QComboBox {
     color: #e6e9f0; background: #14181f; border: 1px solid #222835;
-    border-radius: 7px; padding: 5px 10px;
+    border-radius: 10px; padding: 5px 10px;
     font-family: "Segoe UI"; font-size: 12px;
 }
 QComboBox:hover { border-color: #2b3342; }
@@ -112,19 +113,19 @@ QMessageBox { background: #0e1117; }
 QMessageBox QLabel { color: #e6e9f0; font-family: "Segoe UI"; font-size: 12px; }
 QMessageBox QPushButton {
     color: #c3cad8; background: #14181f; border: 1px solid #222835;
-    border-radius: 7px; padding: 6px 14px; min-width: 60px;
+    border-radius: 9px; padding: 6px 14px; min-width: 60px;
     font-family: "Segoe UI"; font-size: 12px;
 }
 QMessageBox QPushButton:hover { background: #1a1f29; border-color: #2b3342; }
 QPushButton#del {
     background: transparent; border: 1px solid transparent;
-    border-radius: 8px; padding: 0;
+    border-radius: 10px; padding: 0;
 }
 QPushButton#del:hover { background: #1c1216; border-color: #35202a; }
 QScrollArea { border: none; background: transparent; }
 QWidget#qt_scrollarea_viewport { background: transparent; }
 QWidget#clipHost { background: transparent; }
-QWidget#clipRow { background: #10131a; border: 1px solid #191e27; border-radius: 12px; }
+QWidget#clipRow { background: #10131a; border: 1px solid #191e27; border-radius: 16px; }
 QWidget#clipRow:hover { background: #151a23; border-color: #29313f; }
 QLabel#clipName { color: #e6e9f0; font-family: "Segoe UI"; font-size: 13px; font-weight: 600; }
 QLabel#clipMeta { color: #79829a; font-family: "Segoe UI"; font-size: 11px; }
@@ -179,7 +180,7 @@ def thumbnail(path):
     return dest if dest.exists() else None
 
 
-def rounded(pixmap, radius=8):
+def rounded(pixmap, radius=12):
     out = QPixmap(pixmap.size())
     out.fill(Qt.transparent)
     p = QPainter(out)
@@ -302,7 +303,7 @@ class Panel(QWidget):
         self.setStyleSheet(
             f"QWidget#root {{ background: rgba(11, 13, 17, {percent / 100:.2f});"
             " border: 1px solid rgba(255, 255, 255, 0.07);"
-            " border-radius: 12px; }")
+            " border-radius: 18px; }")
 
     def set_grain(self, on):
         self.grain = on
@@ -317,7 +318,7 @@ class Panel(QWidget):
         p = QPainter(self)
         path = QPainterPath()
         path.addRoundedRect(QRectF(1, 1, self.width() - 2, self.height() - 2),
-                            11, 11)
+                            17, 17)
         p.setClipPath(path)
         p.drawTiledPixmap(0, 0, self.width(), self.height(), self._grain)
         p.end()
@@ -435,7 +436,7 @@ class Settings(QDialog):
         outer.addWidget(line)
 
         body = QHBoxLayout()
-        body.setContentsMargins(14, 12, 18, 0)
+        body.setContentsMargins(16, 14, 20, 0)
         body.setSpacing(0)
 
         self.nav = QListWidget()
@@ -446,7 +447,7 @@ class Settings(QDialog):
         self.nav.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         for name in ("General", "Appearance", "Clips", "Storage", "About"):
             item = QListWidgetItem(name)
-            item.setSizeHint(QSize(0, 36))
+            item.setSizeHint(QSize(0, 38))
             self.nav.addItem(item)
         body.addWidget(self.nav)
 
@@ -876,8 +877,8 @@ class Studio(QMainWindow):
         root.set_alpha(self.settings.value("opacity", 95, int))
         root.set_grain(self.settings.value("grain", True, bool))
         outer = QVBoxLayout(root)
-        outer.setContentsMargins(22, 20, 22, 18)
-        outer.setSpacing(16)
+        outer.setContentsMargins(24, 22, 24, 20)
+        outer.setSpacing(18)
 
         header = Header(self)
         head = QHBoxLayout(header)
@@ -926,7 +927,7 @@ class Studio(QMainWindow):
         self.host.setObjectName("clipHost")
         self.list = QVBoxLayout(self.host)
         self.list.setContentsMargins(0, 0, 6, 0)
-        self.list.setSpacing(8)
+        self.list.setSpacing(10)
         self.list.addStretch(1)
         self.scroll.setWidget(self.host)
         outer.addWidget(self.scroll, 1)
