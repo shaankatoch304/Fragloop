@@ -130,9 +130,7 @@ QWidget#clipRow:hover { background: #151a23; border-color: #29313f; }
 QLabel#clipName { color: #e6e9f0; font-family: "Segoe UI"; font-size: 13px; font-weight: 600; }
 QLabel#clipMeta { color: #79829a; font-family: "Segoe UI"; font-size: 11px; }
 QLabel#emptyTitle { color: #4f586b; font-family: "Segoe UI"; font-size: 15px; font-weight: 600; }
-QLabel#emptyHint  { color: #3d4557; font-family: "Segoe UI"; font-size: 12px; }
 QLabel#version { color: #6f7789; font-family: "Segoe UI"; font-size: 11px; }
-QLabel#hint { color: #4f586b; font-family: "Segoe UI"; font-size: 11px; }
 QScrollBar:vertical { background: transparent; width: 8px; }
 QScrollBar::handle:vertical { background: #262d39; border-radius: 4px; min-height: 30px; }
 QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
@@ -961,20 +959,11 @@ class Studio(QMainWindow):
         t = QLabel("No clips yet")
         t.setObjectName("emptyTitle")
         t.setAlignment(Qt.AlignCenter)
-        self.empty_hint = QLabel(
-            f"Alt+G records  ·  Alt+P saves the last "
-            f"{replay_length_text(self.replay_seconds)}  ·  Alt+F screenshot")
-        self.empty_hint.setObjectName("emptyHint")
-        self.empty_hint.setAlignment(Qt.AlignCenter)
         el.addWidget(t)
-        el.addWidget(self.empty_hint)
         el.addStretch(1)
         outer.addWidget(self.empty, 1)
 
         foot = QHBoxLayout()
-        self.hint = QLabel("Alt+G record  ·  Alt+P save replay  ·  Alt+F screenshot")
-        self.hint.setObjectName("hint")
-        foot.addWidget(self.hint)
         foot.addStretch(1)
         ver = QLabel(f"v{APP_VERSION}")
         ver.setObjectName("version")
@@ -1014,9 +1003,6 @@ class Studio(QMainWindow):
 
     def set_replay_seconds(self, seconds):
         self.replay_seconds = seconds
-        self.empty_hint.setText(
-            f"Alt+G records  ·  Alt+P saves the last "
-            f"{replay_length_text(seconds)}  ·  Alt+F screenshot")
 
     def set_always_on_top(self, on):
         try:
@@ -1102,7 +1088,6 @@ class Studio(QMainWindow):
         has = bool(files)
         self.scroll.setVisible(has)
         self.empty.setVisible(not has)
-        self.hint.setVisible(has)
         if has:
             try:
                 total = sum(p.stat().st_size for p in files)
