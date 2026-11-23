@@ -722,7 +722,7 @@ def _save_replay():
 
 
 def _screenshot(icon=None, item=None):
-    # ffmpeg takes a couple of seconds; keep the hotkey loop free.
+    # ffmpeg takes a moment; keep the hotkey loop free.
     threading.Thread(target=_take_screenshot, daemon=True).start()
 
 
@@ -740,7 +740,8 @@ def _take_screenshot():
     try:
         r = subprocess.run(
             [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
-             "-f", "lavfi", "-i", "ddagrab=output_idx=0:framerate=1",
+             # A fast input rate makes the first frame ready at once.
+             "-f", "lavfi", "-i", "ddagrab=output_idx=0:framerate=60",
              "-vf", "hwdownload,format=bgra", "-frames:v", "1", str(tmp)],
             creationflags=subprocess.CREATE_NO_WINDOW, timeout=20)
         if r.returncode == 0 and tmp.exists() and tmp.stat().st_size > 0:
