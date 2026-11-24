@@ -1049,6 +1049,9 @@ class ClipRow(QWidget):
         tag.setAlignment(Qt.AlignCenter)
         tag.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.setToolTip(f"{tag.text()}  ·  double-click to open")
+        self.setAccessibleName(f"{tag.text()}: {path.name}")
+        self.setAccessibleDescription(
+            f"{size}  ·  saved {when}  ·  double-click to open")
         lay.addWidget(tag, 0, Qt.AlignTop)
         lay.addWidget(badge, 0, Qt.AlignTop)
 
