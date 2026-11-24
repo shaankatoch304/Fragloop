@@ -33,7 +33,9 @@ Choose **More info → Run anyway**.
 - **System audio** — WASAPI loopback, no microphone. Switches automatically when
   you change the Windows default output device.
 - **Screenshots** — `Alt+F` saves a PNG of the display to `Videos\Captures`.
-  Screenshots show up in the library on a warm glass card with a camera badge.
+- **Themed clip cards** — screenshots get a warm card with a camera badge,
+  replay saves a violet card with a replay arrow, and manual recordings a red
+  card with a record dot; each row names its type beside the badge.
 - **Native window and tray** - a frameless, translucent clip library with
   thumbnails, clip count and total size, a preferences window for appearance,
   clips and storage, and hotkeys that work while a game has focus.
@@ -114,6 +116,7 @@ Development checks:
 
 - `python selftest.py` — record four seconds and verify video + audio.
 - `python buftest.py` — small replay-buffer save and container check.
+- `python studiotest.py` — clip row labels, animations and library filtering.
 - `python hotkeytest.py` — hotkey toggle guard, no capture needed.
 - `python sendkey.py 47` — synthetic `Alt+G` (hex virtual-key code).
 
