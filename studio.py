@@ -1037,13 +1037,10 @@ class ClipRow(QWidget):
         badge.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         if self.shot:
             badge.setPixmap(camera_pixmap(13))
-            badge.setToolTip("Screenshot")
         elif self.buffer:
             badge.setPixmap(replay_pixmap(13))
-            badge.setToolTip("Replay buffer save")
         else:
             badge.setPixmap(record_pixmap(13))
-            badge.setToolTip("Recording")
         tag = QLabel("Screenshot" if self.shot else
                      "Replay" if self.buffer else "Recording")
         tag.setObjectName("shotTag" if self.shot else
@@ -1051,6 +1048,7 @@ class ClipRow(QWidget):
         tag.setFixedHeight(24)
         tag.setAlignment(Qt.AlignCenter)
         tag.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setToolTip(f"{tag.text()}  ·  double-click to open")
         lay.addWidget(tag, 0, Qt.AlignTop)
         lay.addWidget(badge, 0, Qt.AlignTop)
 
