@@ -16,7 +16,7 @@ from pathlib import Path
 
 from PySide6.QtCore import (QByteArray, QEasingCurve, QEvent,
                             QFileSystemWatcher, QPointF, QRectF, QSettings,
-                            QSize, Qt, QTimer, QVariantAnimation)
+                            QSize, Signal, Qt, QTimer, QVariantAnimation)
 from PySide6.QtGui import (QColor, QIcon, QImage, QKeySequence, QPainter,
                            QPainterPath, QPen, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
@@ -950,11 +950,14 @@ class Logo(QWidget):
 
 
 class ClipRow(QWidget):
+    open_failed = Signal(str)
+
     def __init__(self, path, on_delete, confirm=None):
         super().__init__()
         self.path = path
         self._on_delete = on_delete
         self._confirm = confirm
+        self.open_failed.connect(self._open_failed)
         self.shot = path.suffix.lower() == ".png"
         self.buffer = not self.shot and path.stem.endswith("_replay")
         self.record = not (self.shot or self.buffer)
@@ -1132,7 +1135,7 @@ class ClipRow(QWidget):
         try:
             os.startfile(self.path)
         except Exception as e:
-            QTimer.singleShot(0, lambda: self._open_failed(str(e)))
+            self.open_failed.emit(str(e))
 
     def _open_failed(self, message):
         QMessageBox.warning(None, "Could not open",
