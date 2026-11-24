@@ -15,6 +15,14 @@
   badge, so they read differently from clips.
 - New screenshots show up in the library immediately after capture; the
   single-frame grab now finishes in about a quarter second instead of two.
+- Replay saves use a violet glass card with a replay-arrow badge, and manual
+  recordings use a red glass card with a record dot; every clip row also names
+  its type beside the badge.
+- Saved replays and manual recordings are muxed to a `.part` name and renamed
+  into place when complete, so they appear in the library at once instead of
+  after the old two-second guard.
+- Clip rows animate on hover and press, and double-clicking starts the player
+  off the UI thread, so the window stays responsive and reacts immediately.
 - The main window no longer shows hotkey hints; they stay in Preferences.
 
 ## 0.2.0 - 2026-11-22

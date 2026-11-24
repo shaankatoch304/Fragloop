@@ -4,23 +4,27 @@ Read-only for now: shows what the recorder already saved in Videos\\Captures,
 double-click a clip to play it. The recorder engine is untouched.
 """
 import ctypes
+import math
 import os
 import random
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import (QByteArray, QEvent, QFileSystemWatcher, QPointF,
-                            QRectF, QSettings, QSize, Qt, QTimer)
+from PySide6.QtCore import (QByteArray, QEasingCurve, QEvent,
+                            QFileSystemWatcher, QPointF, QRectF, QSettings,
+                            QSize, Qt, QTimer, QVariantAnimation)
 from PySide6.QtGui import (QColor, QIcon, QImage, QKeySequence, QPainter,
                            QPainterPath, QPen, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
-                               QFrame, QHBoxLayout, QLabel, QListWidget,
-                               QListWidgetItem, QMainWindow, QMessageBox,
-                               QPushButton, QScrollArea, QSlider,
-                               QStackedWidget, QVBoxLayout, QWidget)
+                               QFrame, QGraphicsOpacityEffect, QHBoxLayout,
+                               QLabel, QListWidget, QListWidgetItem,
+                               QMainWindow, QMessageBox, QPushButton,
+                               QScrollArea, QSlider, QStackedWidget,
+                               QVBoxLayout, QWidget)
 
 APP_DIR = (Path(sys.executable).resolve().parent
            if getattr(sys, "frozen", False) else Path(__file__).resolve().parent)
@@ -125,27 +129,64 @@ QPushButton#del:hover { background: #1c1216; border-color: #35202a; }
 QScrollArea { border: none; background: transparent; }
 QWidget#qt_scrollarea_viewport { background: transparent; }
 QWidget#clipHost { background: transparent; }
-QWidget#clipRow { background: #10131a; border: 1px solid #191e27; border-radius: 16px; }
-QWidget#clipRow:hover { background: #151a23; border-color: #29313f; }
-QWidget#shotRow {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 rgba(255, 216, 140, 0.075),
-        stop:0.55 rgba(255, 206, 112, 0.040),
-        stop:1 rgba(255, 232, 176, 0.060));
-    border: 1px solid rgba(255, 214, 140, 0.18);
-    border-radius: 16px;
+QWidget#shotRow, QWidget#bufferRow, QWidget#recordRow {
+    background: transparent;
+    border: none;
 }
-QWidget#shotRow:hover {
+QWidget#shotWash {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
         stop:0 rgba(255, 216, 140, 0.11),
         stop:0.55 rgba(255, 206, 112, 0.060),
         stop:1 rgba(255, 232, 176, 0.090));
-    border-color: rgba(255, 220, 150, 0.28);
+    border: 1px solid rgba(255, 220, 150, 0.28);
+    border-radius: 16px;
+}
+QWidget#bufferWash {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 rgba(200, 148, 255, 0.179),
+        stop:0.55 rgba(172, 112, 255, 0.101),
+        stop:1 rgba(224, 180, 255, 0.146));
+    border: 1px solid rgba(206, 158, 255, 0.426);
+    border-radius: 16px;
+}
+QWidget#recordWash {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 rgba(255, 64, 64, 0.179),
+        stop:0.55 rgba(232, 32, 32, 0.101),
+        stop:1 rgba(255, 112, 112, 0.146));
+    border: 1px solid rgba(255, 84, 84, 0.426);
+    border-radius: 16px;
 }
 QLabel#shotBadge {
     background: rgba(255, 214, 140, 0.13);
     border: 1px solid rgba(255, 214, 140, 0.30);
     border-radius: 7px;
+}
+QLabel#bufferBadge {
+    background: rgba(200, 148, 255, 0.179);
+    border: 1px solid rgba(200, 148, 255, 0.403);
+    border-radius: 7px;
+}
+QLabel#recordBadge {
+    background: rgba(255, 64, 64, 0.179);
+    border: 1px solid rgba(255, 64, 64, 0.403);
+    border-radius: 7px;
+}
+QLabel#shotTag, QLabel#bufferTag, QLabel#recordTag {
+    font-family: "Segoe UI"; font-size: 11px; font-weight: 600;
+    padding: 0 9px; border-radius: 7px;
+}
+QLabel#shotTag {
+    color: #ffd88c; background: rgba(255, 214, 140, 0.13);
+    border: 1px solid rgba(255, 214, 140, 0.30);
+}
+QLabel#bufferTag {
+    color: #d2a4ff; background: rgba(200, 148, 255, 0.179);
+    border: 1px solid rgba(200, 148, 255, 0.403);
+}
+QLabel#recordTag {
+    color: #ff6b6b; background: rgba(255, 64, 64, 0.179);
+    border: 1px solid rgba(255, 64, 64, 0.403);
 }
 QLabel#clipName { color: #e6e9f0; font-family: "Segoe UI"; font-size: 13px; font-weight: 600; }
 QLabel#clipMeta { color: #79829a; font-family: "Segoe UI"; font-size: 11px; }
@@ -846,6 +887,53 @@ def camera_pixmap(size=18, color="#f0cd8b"):
     return pm
 
 
+def replay_pixmap(size=18, color="#d0a2ff"):
+    """Counter-clockwise replay arrow at 2x, matching the camera badge."""
+    dpr = 2.0
+    pm = QPixmap(round(size * dpr), round(size * dpr))
+    pm.setDevicePixelRatio(dpr)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    k = size / 24.0
+    pen = QPen(QColor(color), max(1.2, 1.6 * k))
+    pen.setCapStyle(Qt.RoundCap)
+    pen.setJoinStyle(Qt.RoundJoin)
+    p.setPen(pen)
+    p.setBrush(Qt.NoBrush)
+    p.drawArc(QRectF(5 * k, 5 * k, 14 * k, 14 * k), 100 * 16, 330 * 16)
+    angle = math.radians(70)
+    end = QPointF(12 * k + 7 * k * math.cos(angle),
+                  12 * k - 7 * k * math.sin(angle))
+    tangent = QPointF(-math.sin(angle), -math.cos(angle))
+    normal = QPointF(-tangent.y(), tangent.x())
+    head = QPainterPath()
+    head.moveTo(end + tangent * (4.2 * k))
+    head.lineTo(end + normal * (2.7 * k))
+    head.lineTo(end - normal * (2.7 * k))
+    head.closeSubpath()
+    p.setBrush(QColor(color))
+    p.drawPath(head)
+    p.end()
+    return pm
+
+
+def record_pixmap(size=18, color="#ff5c5c"):
+    """Filled record dot at 2x, matching the other badges."""
+    dpr = 2.0
+    pm = QPixmap(round(size * dpr), round(size * dpr))
+    pm.setDevicePixelRatio(dpr)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    k = size / 24.0
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor(color))
+    p.drawEllipse(QPointF(12 * k, 12 * k), 5 * k, 5 * k)
+    p.end()
+    return pm
+
+
 class Logo(QWidget):
     """Painted at the widget's real pixel size so it never clips or blurs."""
 
@@ -868,18 +956,46 @@ class ClipRow(QWidget):
         self._on_delete = on_delete
         self._confirm = confirm
         self.shot = path.suffix.lower() == ".png"
-        self.setObjectName("shotRow" if self.shot else "clipRow")
+        self.buffer = not self.shot and path.stem.endswith("_replay")
+        self.record = not (self.shot or self.buffer)
+        self.setObjectName("shotRow" if self.shot else
+                            "bufferRow" if self.buffer else "recordRow")
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setFixedHeight(THUMB_H + 20)
         self.setCursor(Qt.PointingHandCursor)
 
+        self._opened_at = 0.0
+        self._hover = 0.0
+        self._press = 0.0
+        self._wash = QWidget(self)
+        self._wash.setObjectName("shotWash" if self.shot else
+                                 "bufferWash" if self.buffer else "recordWash")
+        self._wash.setAttribute(Qt.WA_StyledBackground, True)
+        self._wash.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self._wash_fx = QGraphicsOpacityEffect(self._wash)
+        self._wash_fx.setOpacity(0.68)
+        self._wash.setGraphicsEffect(self._wash_fx)
+        self._wash.setGeometry(0, 0, self.width(), self.height())
+
+        self._hover_anim = QVariantAnimation(self)
+        self._hover_anim.valueChanged.connect(self._set_hover)
+        self._press_anim = QVariantAnimation(self)
+        self._press_anim.setDuration(220)
+        self._press_anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._press_anim.setKeyValueAt(0.0, 0.0)
+        self._press_anim.setKeyValueAt(0.3, 1.0)
+        self._press_anim.setKeyValueAt(1.0, 0.0)
+        self._press_anim.valueChanged.connect(self._set_press)
+
         lay = QHBoxLayout(self)
         lay.setContentsMargins(10, 10, 14, 10)
         lay.setSpacing(14)
+        self._lay = lay
 
         thumb = QLabel()
         thumb.setFixedSize(THUMB_W, THUMB_H)
         thumb.setStyleSheet("background: transparent;")
+        thumb.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         png = thumbnail(path)
         if png:
             pm = QPixmap(str(png)).scaled(THUMB_W, THUMB_H,
@@ -892,28 +1008,48 @@ class ClipRow(QWidget):
         text.setSpacing(4)
         name = QLabel(path.stem)
         name.setObjectName("clipName")
+        name.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         meta = QLabel()
         meta.setObjectName("clipMeta")
+        meta.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         when = time.strftime("%H:%M", time.localtime(path.stat().st_mtime))
         size = size_text(path.stat().st_size)
         if self.shot:
             meta.setText(f"Screenshot  ·  {size}  ·  {when}")
+        elif self.buffer:
+            meta.setText(f"Replay  ·  {clock(duration(path))}  ·  {size}  ·  {when}")
         else:
-            meta.setText(f"{clock(duration(path))}  ·  {size}  ·  {when}")
+            meta.setText(f"Recording  ·  {clock(duration(path))}  ·  {size}  ·  {when}")
         text.addStretch(1)
         text.addWidget(name)
         text.addWidget(meta)
         text.addStretch(1)
         lay.addLayout(text, 1)
 
+        badge = QLabel()
+        badge.setObjectName("shotBadge" if self.shot else
+                             "bufferBadge" if self.buffer else "recordBadge")
+        badge.setFixedSize(24, 24)
+        badge.setAlignment(Qt.AlignCenter)
+        badge.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         if self.shot:
-            badge = QLabel()
-            badge.setObjectName("shotBadge")
-            badge.setFixedSize(24, 24)
-            badge.setAlignment(Qt.AlignCenter)
             badge.setPixmap(camera_pixmap(13))
             badge.setToolTip("Screenshot")
-            lay.addWidget(badge, 0, Qt.AlignTop)
+        elif self.buffer:
+            badge.setPixmap(replay_pixmap(13))
+            badge.setToolTip("Replay buffer save")
+        else:
+            badge.setPixmap(record_pixmap(13))
+            badge.setToolTip("Recording")
+        tag = QLabel("Screenshot" if self.shot else
+                     "Replay" if self.buffer else "Recording")
+        tag.setObjectName("shotTag" if self.shot else
+                          "bufferTag" if self.buffer else "recordTag")
+        tag.setFixedHeight(24)
+        tag.setAlignment(Qt.AlignCenter)
+        tag.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        lay.addWidget(tag, 0, Qt.AlignTop)
+        lay.addWidget(badge, 0, Qt.AlignTop)
 
         remove = QPushButton()
         remove.setObjectName("del")
@@ -928,6 +1064,43 @@ class ClipRow(QWidget):
                                  else "Delete clip")
         remove.clicked.connect(self._delete)
         lay.addWidget(remove)
+        self._wash.lower()
+
+    def resizeEvent(self, event):
+        self._wash.setGeometry(self.rect())
+        super().resizeEvent(event)
+
+    def enterEvent(self, event):
+        self._animate_hover(1.0)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._animate_hover(0.0)
+        super().leaveEvent(event)
+
+    def _animate_hover(self, target):
+        self._hover_anim.stop()
+        self._hover_anim.setStartValue(self._hover)
+        self._hover_anim.setEndValue(target)
+        self._hover_anim.setDuration(160 if target else 220)
+        self._hover_anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._hover_anim.start()
+
+    def _set_hover(self, value):
+        self._hover = float(value)
+        self._apply_visuals()
+
+    def _set_press(self, value):
+        self._press = float(value)
+        self._apply_visuals()
+
+    def _apply_visuals(self):
+        # QSS paints the hover tint; rest is the same tint at 68% opacity, so
+        # one animation crossfades the whole glass effect.
+        opacity = 0.68 + 0.32 * self._hover - 0.10 * self._press
+        self._wash_fx.setOpacity(max(0.0, min(1.0, opacity)))
+        lift = round(2 * self._hover - 3 * self._press)
+        self._lay.setContentsMargins(10, 10 - lift, 14, 10 + lift)
 
     def _delete(self):
         if self._confirm and not self._confirm(self.path):
@@ -938,8 +1111,32 @@ class ClipRow(QWidget):
             self.setToolTip("Could not delete - is the clip open in a player?")
 
     def mouseDoubleClickEvent(self, event):
-        if self.path.exists():
+        if event.button() == Qt.LeftButton:
+            self._open()
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
+
+    def _open(self):
+        # ShellExecute can stall for a moment; keep it off the UI thread and
+        # give the row a press animation immediately.
+        now = time.monotonic()
+        if now - self._opened_at < 1.0:
+            return
+        self._opened_at = now
+        self._press_anim.stop()
+        self._press_anim.start()
+        threading.Thread(target=self._launch, daemon=True).start()
+
+    def _launch(self):
+        try:
             os.startfile(self.path)
+        except Exception as e:
+            QTimer.singleShot(0, lambda: self._open_failed(str(e)))
+
+    def _open_failed(self, message):
+        QMessageBox.warning(None, "Could not open",
+                            f"{self.path.name}\n\n{message}")
 
 
 class Studio(QMainWindow):
@@ -1137,22 +1334,17 @@ class Studio(QMainWindow):
 
     def clips(self):
         OUT_DIR.mkdir(parents=True, exist_ok=True)
-        now = time.time()
         found = []
         for p in OUT_DIR.iterdir():
             if not p.is_file():
                 continue
             suffix = p.suffix.lower()
+            # Recorder saves rename .part.* into place when complete, so every
+            # finished file is safe to show at once.
             if (suffix not in (".mp4", ".mkv", ".png")
-                    or p.name.endswith(".part.png")):
+                    or ".part." in p.name):
                 continue
-            mtime = p.stat().st_mtime
-            # A save is muxed straight into Captures; hide it for 2 s so the
-            # list does not rebuild a growing clip on every refresh.
-            # Screenshots are renamed into place, so they are safe at once.
-            if suffix != ".png" and now - mtime < 2:
-                continue
-            found.append((mtime, p))
+            found.append((p.stat().st_mtime, p))
         found.sort(key=lambda item: item[0],
                    reverse=self.settings.value("sort_newest", True, bool))
         return [p for _, p in found]

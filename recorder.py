@@ -624,7 +624,7 @@ def _save_replay():
         _log("replay save skipped: already running")
         _notify("A replay save is already running")
         return
-    tmp = listfile = wav = None
+    tmp = listfile = wav = part = None
     try:
         if not _buffer_on:
             _log("replay save skipped: buffer off")
@@ -658,6 +658,9 @@ def _save_replay():
             pass
         stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         out = OUT_DIR / f"{stamp}_replay.mp4"
+        # Mux beside the final name, then rename, so the library shows the
+        # replay the moment it is complete instead of hiding it for 2 s.
+        part = out.with_name(out.stem + ".part.mp4")
         tmp = BUFFER_DIR / f"save_{stamp}.mkv"
         listfile = BUFFER_DIR / f"list_{stamp}.txt"
 
@@ -700,21 +703,21 @@ def _save_replay():
             cmd += ["-i", str(wav), "-map", "0:v", "-map", "1:a",
                     "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-shortest"]
         cmd += ["-c:v", "copy", "-tag:v", "hvc1", "-fps_mode", "passthrough",
-                "-movflags", "+faststart", str(out)]
+                "-movflags", "+faststart", str(part)]
         r = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
         if r.returncode == 0:
+            os.replace(part, out)
             _log(f"replay saved: {out.name} ({dur:.0f}s)")
             _notify(f"Saved {out.name}")
         else:
             _log("replay save: mux failed")
-            out.unlink(missing_ok=True)
             _notify("Replay save failed - see recorder.log")
     except Exception as e:
         _log(f"replay save failed: {e!r}")
         _notify("Replay save failed - see recorder.log")
     finally:
         try:
-            for p in (tmp, listfile, wav):
+            for p in (tmp, listfile, wav, part):
                 if p:
                     p.unlink(missing_ok=True)
         finally:
@@ -867,6 +870,9 @@ def _stop():
         end_mtime = _video.stat().st_mtime + MANUAL_MTIME_LAG
         _wav = _buffer_audio_tail(vdur, end_mtime, manual=True) if vdur > 1 else None
         _audio_ok = _wav is not None
+    # Mux beside the final name, then rename, so the clip appears the moment
+    # it is complete instead of being hidden as a fresh file.
+    part = _final.with_name(_final.stem + ".part.mp4")
     cmd = [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
            "-i", str(_video)]
     if _audio_ok and _wav and _wav.exists() and _wav.stat().st_size > 44:
@@ -874,9 +880,10 @@ def _stop():
                 "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-shortest"]
     cmd += ["-c:v", "copy", "-tag:v", "hvc1", "-fps_mode", "passthrough",
             "-movflags", "+faststart",
-            str(_final)]
+            str(part)]
     r = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
     if r.returncode == 0:
+        os.replace(part, _final)
         _video.unlink(missing_ok=True)
         if _wav:
             try:
@@ -887,6 +894,7 @@ def _stop():
         _notify(f"Saved {_final.name}")
     else:
         _log(f"recording mux failed ({r.returncode})")
+        part.unlink(missing_ok=True)
         _final.unlink(missing_ok=True)
         _video.rename(_final.with_suffix(".mkv"))
         _notify("Saved as .mkv (mux failed)")
