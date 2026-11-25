@@ -116,7 +116,7 @@ Development checks:
 
 - `python selftest.py` — record four seconds and verify video + audio.
 - `python buftest.py` — small replay-buffer save and container check.
-- `python studiotest.py` — clip row labels, animations and library filtering.
+- `python studiotest.py` - clip rows, saving state, media caps and library filtering.
 - `python hotkeytest.py` — hotkey toggle guard, no capture needed.
 - `python sendkey.py 47` — synthetic `Alt+G` (hex virtual-key code).
 
