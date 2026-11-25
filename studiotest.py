@@ -14,7 +14,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import QObject, Qt, Slot
 from PySide6.QtGui import QImage
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QLabel
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 
 import studio
 
@@ -228,11 +228,64 @@ def test_concat_quoting(root):
           f"concat path not quoted safely: {line!r}")
 
 
+def test_pending_rows(root):
+    part = root / "2026-11-25_12-00-00_replay.part.mp4"
+    part.write_bytes(b"x" * 1024)
+    os.utime(part, None)
+
+    calls = []
+    original_thumb = studio.thumbnail
+    studio.thumbnail = lambda path: calls.append(path) or None
+    try:
+        row = row_for(part)
+    finally:
+        studio.thumbnail = original_thumb
+    check(row.pending, "part row not marked as saving")
+    check(not calls, "pending row spent time on a thumbnail")
+    meta = row.findChild(QLabel, "clipMeta")
+    check(meta is not None and "Saving" in meta.text(),
+          f"pending meta {meta and meta.text()!r}")
+    remove = row.findChild(QPushButton, "del")
+    check(remove is not None and not remove.isEnabled(),
+          "delete is enabled while saving")
+
+    opened = []
+    original_open = studio.os.startfile
+    studio.os.startfile = lambda path: opened.append(path)
+    try:
+        row._open()
+    finally:
+        studio.os.startfile = original_open
+    check(not opened, "pending clip was opened")
+
+    class Settings:
+        def value(self, key, default=None, type=None):
+            return True
+
+    original_dir = studio.OUT_DIR
+    studio.OUT_DIR = root
+    try:
+        files = studio.Studio.clips(SimpleNamespace(settings=Settings()))
+        check(part in files, "fresh part missing from the library")
+        stale = root / "stale.part.mp4"
+        stale.write_bytes(b"")
+        stamp = time.time() - studio.PART_MAX_AGE - 60
+        os.utime(stale, (stamp, stamp))
+        files = studio.Studio.clips(SimpleNamespace(settings=Settings()))
+        check(stale not in files, "stale part shown forever")
+    finally:
+        studio.OUT_DIR = original_dir
+
+    row.close()
+    row.deleteLater()
+    app.processEvents()
+
+
 def main():
     tests = [test_types_and_labels, test_animations,
              test_open_does_not_block, test_failed_open_reports_on_ui_thread,
              test_library_filter, test_filename_is_plain_text,
-             test_image_caps, test_concat_quoting]
+             test_pending_rows, test_image_caps, test_concat_quoting]
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
         for test in tests:

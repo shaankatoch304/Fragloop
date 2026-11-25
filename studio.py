@@ -39,6 +39,7 @@ APP_VERSION = "0.2.0"
 PROBE_TIMEOUT = 10          # seconds; a crafted file must not hang the window
 MAX_IMAGE_BYTES = 128 * 2**20
 MAX_IMAGE_PIXELS = 40_000_000
+PART_MAX_AGE = 30 * 60      # hide a .part left behind by a crashed save
 
 QSS = """
 QMainWindow { background: transparent; }
@@ -981,14 +982,17 @@ class ClipRow(QWidget):
         self._on_delete = on_delete
         self._confirm = confirm
         self.open_failed.connect(self._open_failed)
+        self.pending = ".part." in path.name
         self.shot = path.suffix.lower() == ".png"
-        self.buffer = not self.shot and path.stem.endswith("_replay")
+        stem = path.stem.removesuffix(".part")
+        self.buffer = not self.shot and stem.endswith("_replay")
         self.record = not (self.shot or self.buffer)
         self.setObjectName("shotRow" if self.shot else
                             "bufferRow" if self.buffer else "recordRow")
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setFixedHeight(THUMB_H + 20)
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.ArrowCursor if self.pending
+                       else Qt.PointingHandCursor)
 
         self._opened_at = 0.0
         self._hover = 0.0
@@ -1022,7 +1026,7 @@ class ClipRow(QWidget):
         thumb.setFixedSize(THUMB_W, THUMB_H)
         thumb.setStyleSheet("background: transparent;")
         thumb.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        png = thumbnail(path)
+        png = None if self.pending else thumbnail(path)
         if png:
             pm = QPixmap(str(png)).scaled(THUMB_W, THUMB_H,
                                           Qt.KeepAspectRatioByExpanding,
@@ -1032,7 +1036,7 @@ class ClipRow(QWidget):
 
         text = QVBoxLayout()
         text.setSpacing(4)
-        name = QLabel(path.stem)
+        name = QLabel(stem)
         name.setObjectName("clipName")
         # A filename is untrusted text; never let it render as rich text.
         name.setTextFormat(Qt.PlainText)
@@ -1042,7 +1046,11 @@ class ClipRow(QWidget):
         meta.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         when = time.strftime("%H:%M", time.localtime(path.stat().st_mtime))
         size = size_text(path.stat().st_size)
-        if self.shot:
+        label = ("Screenshot" if self.shot else
+                 "Replay" if self.buffer else "Recording")
+        if self.pending:
+            meta.setText(f"{label}  ·  Saving…")
+        elif self.shot:
             meta.setText(f"Screenshot  ·  {size}  ·  {when}")
         elif self.buffer:
             meta.setText(f"Replay  ·  {clock(duration(path))}  ·  {size}  ·  {when}")
@@ -1066,17 +1074,22 @@ class ClipRow(QWidget):
             badge.setPixmap(replay_pixmap(13))
         else:
             badge.setPixmap(record_pixmap(13))
-        tag = QLabel("Screenshot" if self.shot else
-                     "Replay" if self.buffer else "Recording")
+        tag = QLabel(label)
         tag.setObjectName("shotTag" if self.shot else
                           "bufferTag" if self.buffer else "recordTag")
         tag.setFixedHeight(24)
         tag.setAlignment(Qt.AlignCenter)
         tag.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        self.setToolTip(f"{tag.text()}  ·  double-click to open")
-        self.setAccessibleName(f"{tag.text()}: {path.name}")
-        self.setAccessibleDescription(
-            f"{size}  ·  saved {when}  ·  double-click to open")
+        if self.pending:
+            self.setToolTip(f"{label}  ·  saving, please wait")
+            self.setAccessibleName(f"{label}: {stem}")
+            self.setAccessibleDescription(
+                "Saving the clip; it will open when ready")
+        else:
+            self.setToolTip(f"{label}  ·  double-click to open")
+            self.setAccessibleName(f"{label}: {path.name}")
+            self.setAccessibleDescription(
+                f"{size}  ·  saved {when}  ·  double-click to open")
         lay.addWidget(tag, 0, Qt.AlignTop)
         lay.addWidget(badge, 0, Qt.AlignTop)
 
@@ -1092,6 +1105,9 @@ class ClipRow(QWidget):
         remove.setAccessibleName("Delete screenshot" if self.shot
                                  else "Delete clip")
         remove.clicked.connect(self._delete)
+        if self.pending:
+            remove.setEnabled(False)
+            remove.setToolTip("Available when the save finishes")
         lay.addWidget(remove)
         self._wash.lower()
 
@@ -1132,6 +1148,8 @@ class ClipRow(QWidget):
         self._lay.setContentsMargins(10, 10 - lift, 14, 10 + lift)
 
     def _delete(self):
+        if self.pending:
+            return
         if self._confirm and not self._confirm(self.path):
             return
         if recycle(self.path):
@@ -1147,6 +1165,8 @@ class ClipRow(QWidget):
         super().mouseDoubleClickEvent(event)
 
     def _open(self):
+        if self.pending:
+            return
         # ShellExecute can stall for a moment; keep it off the UI thread and
         # give the row a press animation immediately.
         now = time.monotonic()
@@ -1372,12 +1392,18 @@ class Studio(QMainWindow):
             if not p.is_file():
                 continue
             suffix = p.suffix.lower()
-            # Recorder saves rename .part.* into place when complete, so every
-            # finished file is safe to show at once.
-            if (suffix not in (".mp4", ".mkv", ".png")
-                    or ".part." in p.name):
+            if suffix not in (".mp4", ".mkv", ".png"):
                 continue
-            found.append((p.stat().st_mtime, p))
+            try:
+                mtime = p.stat().st_mtime
+            except OSError:
+                continue
+            if ".part." in p.name:
+                # A save in progress is shown at once as "Saving…". Ignore
+                # screenshot parts (gone in a blink) and crashed leftovers.
+                if suffix == ".png" or time.time() - mtime > PART_MAX_AGE:
+                    continue
+            found.append((mtime, p))
         found.sort(key=lambda item: item[0],
                    reverse=self.settings.value("sort_newest", True, bool))
         return [p for _, p in found]
@@ -1385,7 +1411,8 @@ class Studio(QMainWindow):
     def refresh(self):
         files = self.clips()
         key = (self.settings.value("sort_newest", True, bool),
-               tuple((p.name, p.stat().st_mtime) for p in files))
+               tuple((p.name, 0.0 if ".part." in p.name
+                      else p.stat().st_mtime) for p in files))
         if key == self._seen:
             return
         self._seen = key

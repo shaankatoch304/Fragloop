@@ -31,6 +31,8 @@
   demuxer, so an apostrophe in the profile path cannot inject directives.
 - Clip names, folder paths and dialogs render as plain text, so a filename
   cannot inject markup into the interface.
+- Saving a replay or stopping a recording now shows a "Saving…" row in the
+  library immediately, then swaps in the finished clip and thumbnail.
 
 ## 0.2.0 - 2026-11-22
 

@@ -666,6 +666,10 @@ def _save_replay():
         # Mux beside the final name, then rename, so the library shows the
         # replay the moment it is complete instead of hiding it for 2 s.
         part = out.with_name(out.stem + ".part.mp4")
+        try:
+            part.touch()  # show the "Saving…" row before the concat/mux
+        except OSError:
+            pass  # the mux will report the real failure
         tmp = BUFFER_DIR / f"save_{stamp}.mkv"
         listfile = BUFFER_DIR / f"list_{stamp}.txt"
 
@@ -879,6 +883,10 @@ def _stop():
     # Mux beside the final name, then rename, so the clip appears the moment
     # it is complete instead of being hidden as a fresh file.
     part = _final.with_name(_final.stem + ".part.mp4")
+    try:
+        part.touch()  # show the "Saving…" row before the mux
+    except OSError:
+        pass  # the mux will report the real failure
     cmd = [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
            "-i", str(_video)]
     if _audio_ok and _wav and _wav.exists() and _wav.stat().st_size > 44:
