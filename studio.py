@@ -986,7 +986,6 @@ class ClipRow(QWidget):
         self.shot = path.suffix.lower() == ".png"
         stem = path.stem.removesuffix(".part")
         self.buffer = not self.shot and stem.endswith("_replay")
-        self.record = not (self.shot or self.buffer)
         self.setObjectName("shotRow" if self.shot else
                             "bufferRow" if self.buffer else "recordRow")
         self.setAttribute(Qt.WA_StyledBackground, True)
