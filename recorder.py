@@ -64,6 +64,11 @@ SEGMENT_SECONDS = 2            # small chunks keep the freshest tail on disk
 REPLAY_SECONDS_OVERRIDE = None  # tests pin a short buffer
 AUDIO_ROTATE_SECONDS = 300     # rolling audio chunk size
 KEEP_AUDIO_FILES = 12          # ~1 h, so a long manual recording keeps its audio
+PROBE_TIMEOUT = 10             # seconds; a stuck ffprobe must not wedge a save
+CONCAT_TIMEOUT = 300           # seconds; enough for a 15-minute replay concat
+MUX_TIMEOUT = 600              # seconds; video copy + AAC + faststart
+SHOT_TIMEOUT = 20              # seconds; one frame from the GPU
+STOP_TIMEOUT = 15              # seconds; let ffmpeg finalize on stop
 
 
 def _replay_seconds():
@@ -473,7 +478,7 @@ def _probe_duration(path):
         out = subprocess.run(
             [str(FFPROBE), "-v", "error", "-show_entries", "format=duration",
              "-of", "csv=p=0", str(path)],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, timeout=PROBE_TIMEOUT,
             creationflags=subprocess.CREATE_NO_WINDOW).stdout.strip()
         return float(out)
     except Exception:
@@ -692,7 +697,7 @@ def _save_replay():
                 [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
                  "-f", "concat", "-safe", "0", "-i", str(listfile),
                  "-c", "copy", str(tmp)],
-                creationflags=subprocess.CREATE_NO_WINDOW, timeout=300)
+                creationflags=subprocess.CREATE_NO_WINDOW, timeout=CONCAT_TIMEOUT)
 
         _notify("Saving last minutes...")
         r = concat(chosen)
@@ -719,7 +724,7 @@ def _save_replay():
         cmd += ["-c:v", "copy", "-tag:v", "hvc1", "-fps_mode", "passthrough",
                 "-movflags", "+faststart", str(part)]
         r = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW,
-                           timeout=600)
+                           timeout=MUX_TIMEOUT)
         if r.returncode == 0:
             os.replace(part, out)
             _log(f"replay saved: {out.name} ({dur:.0f}s)")
@@ -761,7 +766,7 @@ def _take_screenshot():
              # A fast input rate makes the first frame ready at once.
              "-f", "lavfi", "-i", "ddagrab=output_idx=0:framerate=60",
              "-vf", "hwdownload,format=bgra", "-frames:v", "1", str(tmp)],
-            creationflags=subprocess.CREATE_NO_WINDOW, timeout=20)
+            creationflags=subprocess.CREATE_NO_WINDOW, timeout=SHOT_TIMEOUT)
         if r.returncode == 0 and tmp.exists() and tmp.stat().st_size > 0:
             os.replace(tmp, out)
             _log(f"screenshot saved: {out.name}")
@@ -867,7 +872,7 @@ def _stop():
         try:
             p.stdin.write(b"q")
             p.stdin.flush()
-            p.wait(timeout=15)
+            p.wait(timeout=STOP_TIMEOUT)
         except Exception:
             p.kill()
     if _icon:
@@ -902,7 +907,7 @@ def _stop():
             str(part)]
     try:
         r = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW,
-                           timeout=600)
+                           timeout=MUX_TIMEOUT)
         rc = r.returncode
     except subprocess.TimeoutExpired:
         rc = "timeout"
