@@ -31,8 +31,10 @@ Choose **More info → Run anyway**.
   players, even on a 240 Hz panel.
 - **Configurable replay buffer** — 1 to 15 minutes with second-level precision
   (5 minutes by default), two-second segments, saved in seconds.
-- **System audio** — WASAPI loopback, no microphone. Switches automatically when
-  you change the Windows default output device.
+- **System audio and optional mic** — WASAPI loopback switches automatically
+  when you change the Windows default output device. Pick a microphone in
+  Preferences to mix it into every replay and recording; system audio is
+  always included.
 - **Screenshots** — `Alt+F` saves a PNG of the display to `Videos\Captures`.
 - **Themed clip cards** — screenshots get a warm card with a camera badge,
   replay saves a violet card with a replay arrow, and manual recordings a red
@@ -41,7 +43,7 @@ Choose **More info → Run anyway**.
   library immediately as a "Saving…" row, then becomes the finished clip.
 - **Native window and tray** — a frameless, translucent clip library with
   thumbnails, clip count and total size, a preferences window for appearance,
-  clips and storage, and hotkeys that work while a game has focus.
+  recording, clips and storage, and hotkeys that work while a game has focus.
 - **MP4 (10-bit HEVC + AAC)** — roughly half the H.264 size at the same
   quality. Windows needs the free HEVC Video Extension (or VLC/MPC) to play it.
 
@@ -119,7 +121,8 @@ Development checks:
 
 - `python selftest.py` — record four seconds and verify video + audio.
 - `python buftest.py` — small replay-buffer save and container check.
-- `python studiotest.py` — clip rows, saving state, media caps and library filtering.
+- `python studiotest.py` — clip rows, saving state, media caps, library
+  filtering and audio mixing.
 - `python hotkeytest.py` — hotkey toggle guard, no capture needed.
 - `python sendkey.py 47` — synthetic `Alt+G` (hex virtual-key code).
 
@@ -129,6 +132,12 @@ Development checks:
 device. If the game selects a different device in its own settings, or uses
 WASAPI exclusive mode, loopback will not hear it. Everything else is captured,
 including Bluetooth headphones.
+
+**The microphone is silent.** Open Preferences (`Ctrl+,`) and pick the input
+under Recording → Microphone. Allow microphone access for desktop apps in
+Windows Settings → Privacy → Microphone, and check the input level in Windows
+Sound settings. The tray menu also has a Microphone on/off toggle. System
+audio is recorded whether the mic is on or off.
 
 **Hotkeys do nothing.** Another application owns `Alt+G`/`Alt+P`/`Alt+F`.
 Close it or change `HOTKEY_VK` in `recorder.py`.

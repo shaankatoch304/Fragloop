@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 - 2026-11-26
+
+- Optional microphone: choose Off, System default or a specific input in
+  Preferences → Recording → Microphone, or toggle it from the tray. The mic is
+  mixed with system audio in replay saves and manual recordings.
+- Audio mixing is limited to keep peaks clean, and the mic follows device
+  changes without restarting the replay buffer.
+
 ## 0.3.0 - 2026-11-26
 
 - Preferences opens with Ctrl+, and double-clicking the title bar

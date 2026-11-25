@@ -1,14 +1,15 @@
 """Fragloop - tiny tray recorder.
 
 Alt+G starts/stops. Records the primary display at a constant 120 fps with
-NVENC straight from the GPU and system audio via WASAPI loopback (never the
-mic). Alt+P saves the last 1-15 minutes (5 by default) from the replay
-buffer. Alt+F saves a PNG screenshot. Files land in Videos\\Captures as .mp4
-or .png.
+NVENC straight from the GPU and system audio via WASAPI loopback, optionally
+mixed with a microphone chosen in Preferences. Alt+P saves the last 1-15
+minutes (5 by default) from the replay buffer. Alt+F saves a PNG screenshot.
+Files land in Videos\\Captures as .mp4 or .png.
 """
 import ctypes
 import ctypes.wintypes
 import datetime
+import itertools
 import os
 import shutil
 import subprocess
@@ -84,6 +85,58 @@ def _replay_seconds():
         return REPLAY_SECONDS
 
 
+def _mic_setting():
+    """None when the mic is off, else the chosen device name ('' = default)."""
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Fragloop\Studio") as key:
+            enabled, _ = winreg.QueryValueEx(key, "mic_enabled")
+            try:
+                device, _ = winreg.QueryValueEx(key, "mic_device")
+            except OSError:
+                device = ""
+    except OSError:
+        return None
+    if str(enabled).strip().lower() not in ("1", "true", "yes"):
+        return None
+    return str(device).strip()
+
+
+def _set_setting(name, value):
+    try:
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
+                              r"Software\Fragloop\Studio") as key:
+            winreg.SetValueEx(key, name, 0, winreg.REG_SZ, str(value))
+    except OSError as e:
+        _log(f"setting write failed: {e!r}")
+
+
+def _mic_device(pa, name):
+    """The chosen WASAPI input, or Windows' default input for ''."""
+    wasapi = pa.get_host_api_info_by_type(pyaudio.paWASAPI)
+    if name:
+        for dev in pa.get_device_info_generator():
+            if (dev["hostApi"] == wasapi["index"]
+                    and dev["maxInputChannels"] > 0
+                    and not dev.get("isLoopbackDevice")
+                    and dev["name"] == name):
+                return dev
+        return None
+    index = wasapi.get("defaultInputDevice", -1)
+    try:
+        dev = pa.get_device_info_by_index(index)
+        return None if dev.get("isLoopbackDevice") else dev
+    except Exception:
+        return None
+
+
+def _default_input_name(pa):
+    try:
+        return _mic_device(pa, "")["name"]
+    except Exception:
+        return None
+
+
 def _save_segments():
     return _replay_seconds() // SEGMENT_SECONDS + 1
 
@@ -97,6 +150,9 @@ AUDIO_SYNC_BY_DEVICE = {"JBL": -0.084, "Realtek": -0.025}
 # Manual (Alt+G) files close differently; Bluetooth needed its own value.
 AUDIO_MANUAL_SYNC_BY_DEVICE = {"JBL": 0.088}
 AUDIO_SYNC_SECONDS = -0.025    # fallback when the endpoint is unknown
+# Microphones report later than loopback and vary by endpoint. This is a
+# starting point; the per-device table above also applies to mic names.
+MIC_SYNC_SECONDS = -0.05
 # The file mtime is when the muxer last wrote, which is before the encoder
 # has flushed its queue. Measured with a flash + 1 kHz tone: HEVC's queue
 # trails a 2 s segment by ~0.03 s but a final file close by ~0.37 s.
@@ -130,6 +186,20 @@ _buf_audio_fh = None
 _buf_audio_lock = threading.Lock()
 _buf_rate = 48000
 _buf_channels = 2
+
+_mic_stop = threading.Event()
+_mic_ready = threading.Event()
+_mic_thread = None
+_mic_fh = None
+_mic_lock = threading.Lock()
+_mic_from_buffer = False
+_mic_manual = False
+_mic_state = {"pa": None, "stream": None, "dev": None, "rate": 48000,
+              "ch": 1, "t0": 0.0, "frames": 0}
+_tail_seq = itertools.count()
+# PortAudio initializes globally; two PyAudio instances opening at once (the
+# loopback and mic loops both start with the buffer) can fail or crash.
+_pa_lock = threading.RLock()
 
 
 def _icon_image(color):
@@ -263,12 +333,8 @@ _audio_state = {"pa": None, "stream": None, "dev": None, "rate": 48000,
                 "ch": 2, "t0": 0.0, "frames": 0}
 
 
-def _buf_audio_pad():
-    """Fill the open file up to wall clock. Call with _buf_audio_lock held."""
-    st = _audio_state
-    fh = _buf_audio_fh
-    if fh is None:
-        return
+def _pcm_pad(fh, st):
+    """Fill an open PCM file up to wall clock. Caller holds its lock."""
     # Keep a small reserve so silence is never written ahead of live
     # samples that arrive a callback late.
     gap = (int((time.monotonic() - st["t0"]) * st["rate"])
@@ -277,6 +343,12 @@ def _buf_audio_pad():
         n = min(gap, st["rate"])
         fh.write(b"\x00" * (n * st["ch"] * 2))
         st["frames"] += n
+
+
+def _buf_audio_pad():
+    """Fill the open file up to wall clock. Call with _buf_audio_lock held."""
+    if _buf_audio_fh is not None:
+        _pcm_pad(_buf_audio_fh, _audio_state)
 
 
 def _buf_audio_new_file(rate=None, channels=None):
@@ -315,58 +387,60 @@ def _buf_audio_cb(in_data, frame_count, time_info, status):
 
 def _buf_audio_close():
     st = _audio_state
-    try:
-        if st["stream"]:
-            st["stream"].stop_stream()
-            st["stream"].close()
-    except Exception:
-        pass
-    st["stream"] = None
-    try:
-        if st["pa"]:
-            st["pa"].terminate()
-    except Exception:
-        pass
-    st["pa"] = None
+    with _pa_lock:
+        try:
+            if st["stream"]:
+                st["stream"].stop_stream()
+                st["stream"].close()
+        except Exception:
+            pass
+        st["stream"] = None
+        try:
+            if st["pa"]:
+                st["pa"].terminate()
+        except Exception:
+            pass
+        st["pa"] = None
 
 
 def _buf_audio_open():
     """(Re)create PyAudio and the loopback stream at the current device."""
     global _buf_audio_fh
     st = _audio_state
-    _buf_audio_close()
-    st["pa"] = pyaudio.PyAudio()
-    dev = _loopback_device(st["pa"])
-    rate, ch = int(dev["defaultSampleRate"]), int(dev["maxInputChannels"])
-    with _buf_audio_lock:
-        same = (_buf_audio_fh is not None
-                and rate == st["rate"] and ch == st["ch"])
-        if not same:
-            if _buf_audio_fh is not None:
-                # Old chunks are in another format; mixing rates would
-                # corrupt the timeline, so drop them and start clean.
-                try:
-                    _buf_audio_pad()
-                except Exception:
-                    pass
-                try:
-                    _buf_audio_fh.close()
-                except Exception:
-                    pass
-                _buf_audio_fh = None
-                for p in BUFFER_DIR.glob("aud_*.pcm"):
+    with _pa_lock:
+        _buf_audio_close()
+        st["pa"] = pyaudio.PyAudio()
+        dev = _loopback_device(st["pa"])
+        rate, ch = int(dev["defaultSampleRate"]), int(dev["maxInputChannels"])
+        with _buf_audio_lock:
+            same = (_buf_audio_fh is not None
+                    and rate == st["rate"] and ch == st["ch"])
+            if not same:
+                if _buf_audio_fh is not None:
+                    # Old chunks are in another format; mixing rates would
+                    # corrupt the timeline, so drop them and start clean.
                     try:
-                        p.unlink()
-                    except OSError:
+                        _buf_audio_pad()
+                    except Exception:
                         pass
-            _buf_audio_new_file(rate, ch)
-    st["dev"] = dev
-    st["stream"] = st["pa"].open(
-        format=pyaudio.paInt16, channels=ch, rate=rate,
-        frames_per_buffer=1024, input=True,
-        input_device_index=dev["index"],
-        stream_callback=_buf_audio_cb, start=False)
-    st["stream"].start_stream()
+                    try:
+                        _buf_audio_fh.close()
+                    except Exception:
+                        pass
+                    _buf_audio_fh = None
+                    for p in BUFFER_DIR.glob("aud_*.pcm"):
+                        try:
+                            p.unlink()
+                        except OSError:
+                            pass
+                _buf_audio_new_file(rate, ch)
+        st["dev"] = dev
+        st["stream"] = st["pa"].open(
+            format=pyaudio.paInt16, channels=ch, rate=rate,
+            frames_per_buffer=1024, input=True,
+            input_device_index=dev["index"],
+            stream_callback=_buf_audio_cb, start=False)
+        st["stream"].start_stream()
     return dev
 
 
@@ -380,6 +454,10 @@ def _buffer_audio_loop():
     global _buf_audio_fh
     st = _audio_state
     last_check = 0.0
+    try:
+        comtypes.CoInitialize()
+    except Exception:
+        pass
     while not _buf_audio_stop.is_set():
         try:
             if st["stream"] is None:
@@ -422,31 +500,174 @@ def _buffer_audio_loop():
         _buf_audio_fh = None
 
 
-def _buffer_audio_tail(dur, end_time, manual=False):
-    """Build a WAV holding the last `dur` seconds of buffer audio."""
-    with _buf_audio_lock:
-        rate, channels = _buf_rate, _buf_channels
-        dev_name = (_audio_state["dev"] or {}).get("name", "")
+def _mic_new_file(rate=None, channels=None):
+    """Pad/close the old PCM and start a new one. Call with the lock held."""
+    global _mic_fh
+    st = _mic_state
+    if _mic_fh is not None:
+        try:
+            _pcm_pad(_mic_fh, st)
+            _mic_fh.close()
+        except Exception:
+            pass
+    if rate is not None:
+        st["rate"], st["ch"] = int(rate), int(channels)
+    _mic_fh = open(BUFFER_DIR / f"mic_{time.time():.3f}.pcm", "wb")
+    st["t0"] = time.monotonic()
+    st["frames"] = 0
+
+
+def _mic_cb(in_data, frame_count, time_info, status):
+    st = _mic_state
+    with _mic_lock:
+        try:
+            if _mic_fh is None:
+                return None, pyaudio.paContinue
+            _pcm_pad(_mic_fh, st)
+            _mic_fh.write(in_data)
+            st["frames"] += len(in_data) // (st["ch"] * 2)
+            if st["frames"] >= st["rate"] * AUDIO_ROTATE_SECONDS:
+                _mic_new_file()
+        except Exception:
+            pass
+    return None, pyaudio.paContinue
+
+
+def _mic_close():
+    st = _mic_state
+    with _pa_lock:
+        try:
+            if st["stream"]:
+                st["stream"].stop_stream()
+                st["stream"].close()
+        except Exception:
+            pass
+        st["stream"] = None
+        try:
+            if st["pa"]:
+                st["pa"].terminate()
+        except Exception:
+            pass
+        st["pa"] = None
+
+
+def _mic_open(setting):
+    """(Re)create PyAudio and the chosen mic stream at its native format."""
+    global _mic_fh
+    st = _mic_state
+    with _pa_lock:
+        _mic_close()
+        st["pa"] = pyaudio.PyAudio()
+        dev = _mic_device(st["pa"], setting)
+        if dev is None:
+            raise RuntimeError("chosen microphone is not connected")
+        rate = int(dev["defaultSampleRate"])
+        ch = max(1, min(2, int(dev["maxInputChannels"])))
+        with _mic_lock:
+            same = _mic_fh is not None and rate == st["rate"] and ch == st["ch"]
+            if not same:
+                if _mic_fh is not None:
+                    # Old chunks are in another format; mixing rates would
+                    # corrupt the timeline, so drop them and start clean.
+                    try:
+                        _pcm_pad(_mic_fh, st)
+                    except Exception:
+                        pass
+                    try:
+                        _mic_fh.close()
+                    except Exception:
+                        pass
+                    _mic_fh = None
+                    for p in BUFFER_DIR.glob("mic_*.pcm"):
+                        try:
+                            p.unlink()
+                        except OSError:
+                            pass
+                _mic_new_file(rate, ch)
+        st["dev"] = dev
+        _log(f"microphone opening: {dev['name']} {rate} Hz {ch} ch "
+             f"(index {dev['index']})")
+        st["stream"] = st["pa"].open(
+            format=pyaudio.paInt16, channels=ch, rate=rate,
+            frames_per_buffer=1024, input=True,
+            input_device_index=dev["index"],
+            stream_callback=_mic_cb, start=False)
+        st["stream"].start_stream()
+    _mic_ready.set()
+    return dev
+
+
+def _mic_loop():
+    """Capture the chosen mic into rotating PCM chunks, or idle when off."""
+    global _mic_fh
+    st = _mic_state
+    last_check = 0.0
+    try:
+        comtypes.CoInitialize()
+    except Exception:
+        pass
+    while not _mic_stop.is_set():
+        try:
+            setting = _mic_setting()
+            if setting is None:
+                if st["stream"] is not None:
+                    _mic_close()
+                    with _mic_lock:
+                        try:
+                            if _mic_fh:
+                                _pcm_pad(_mic_fh, st)
+                                _mic_fh.close()
+                        except Exception:
+                            pass
+                        _mic_fh = None
+                time.sleep(0.2)
+                continue
+            if st["stream"] is None:
+                dev = _mic_open(setting)
+                _log(f"microphone started: {dev['name']}")
+            time.sleep(0.05)
+            with _mic_lock:
+                if _mic_fh is not None:
+                    _pcm_pad(_mic_fh, st)
+                    if st["frames"] >= st["rate"] * AUDIO_ROTATE_SECONDS:
+                        _mic_new_file()
+                    try:
+                        _mic_fh.flush()
+                    except Exception:
+                        pass
+            now = time.monotonic()
+            # Follow a device change without restarting the buffer.
+            if now - last_check >= 5:
+                last_check = now
+                want = setting or _default_input_name(st["pa"])
+                if want and st["dev"] and want != st["dev"]["name"]:
+                    _log(f"microphone switched: {st['dev']['name']} -> "
+                         f"{want}")
+                    _mic_open(want)
+        except Exception as e:
+            _log(f"microphone error: {e!r}")
+            _mic_close()
+            time.sleep(1)
+    _mic_close()
+    with _mic_lock:
+        try:
+            if _mic_fh:
+                _mic_fh.close()
+        except Exception:
+            pass
+        _mic_fh = None
+
+
+def _pcm_tail(pattern, rate, channels, dur, end_time, sync):
+    """Build a WAV holding the last `dur` seconds of `pattern` PCM files."""
     frame_bytes = channels * 2
     need = int(dur * rate) * frame_bytes
     # video ends when the last closed segment was finished; drop the audio
     # recorded since then, *before* cutting to `need`. The sync value trims
     # a little extra because captured audio runs early vs. the video.
-    sync = None
-    if manual:
-        sync = next((v for k, v in AUDIO_MANUAL_SYNC_BY_DEVICE.items()
-                     if k in dev_name), None)
-    if sync is None:
-        sync = next((v for k, v in AUDIO_SYNC_BY_DEVICE.items()
-                     if k in dev_name), AUDIO_SYNC_SECONDS)
     drop = max(0, int((time.time() - end_time + sync) * rate)) * frame_bytes
     keep = need + drop
-    with _buf_audio_lock:
-        try:
-            _buf_audio_fh.flush()
-        except Exception:
-            pass
-    files = sorted(BUFFER_DIR.glob("aud_*.pcm"))
+    files = sorted(BUFFER_DIR.glob(pattern))
     chunks, total = [], 0
     for p in reversed(files):
         try:
@@ -464,13 +685,74 @@ def _buffer_audio_tail(dur, end_time, manual=False):
     if len(data) < need:
         # buffer just started: pad the start so the track stays aligned
         data = b"\x00" * (need - len(data)) + data
-    path = BUFFER_DIR / f"tail_{time.time():.3f}.wav"
+    path = BUFFER_DIR / f"tail_{next(_tail_seq)}_{time.time():.3f}.wav"
     with wave.open(str(path), "wb") as w:
         w.setnchannels(channels)
         w.setsampwidth(2)
         w.setframerate(rate)
         w.writeframes(data)
     return path
+
+
+def _buffer_audio_tail(dur, end_time, manual=False):
+    """Build a WAV holding the last `dur` seconds of buffer audio."""
+    with _buf_audio_lock:
+        rate, channels = _buf_rate, _buf_channels
+        dev_name = (_audio_state["dev"] or {}).get("name", "")
+    sync = None
+    if manual:
+        sync = next((v for k, v in AUDIO_MANUAL_SYNC_BY_DEVICE.items()
+                     if k in dev_name), None)
+    if sync is None:
+        sync = next((v for k, v in AUDIO_SYNC_BY_DEVICE.items()
+                     if k in dev_name), AUDIO_SYNC_SECONDS)
+    with _buf_audio_lock:
+        try:
+            _buf_audio_fh.flush()
+        except Exception:
+            pass
+    return _pcm_tail("aud_*.pcm", rate, channels, dur, end_time, sync)
+
+
+def _mic_tail(dur, end_time, manual=False):
+    """Build the mic WAV for the same window, or None when it is off."""
+    if _mic_setting() is None:
+        return None
+    with _mic_lock:
+        rate, channels = _mic_state["rate"], _mic_state["ch"]
+        dev_name = (_mic_state["dev"] or {}).get("name", "")
+        try:
+            if _mic_fh:
+                _mic_fh.flush()
+        except Exception:
+            pass
+    if not any(BUFFER_DIR.glob("mic_*.pcm")):
+        return None
+    sync = None
+    if manual:
+        sync = next((v for k, v in AUDIO_MANUAL_SYNC_BY_DEVICE.items()
+                     if k in dev_name), None)
+    if sync is None:
+        sync = next((v for k, v in AUDIO_SYNC_BY_DEVICE.items()
+                     if k in dev_name), MIC_SYNC_SECONDS)
+    return _pcm_tail("mic_*.pcm", rate, channels, dur, end_time, sync)
+
+
+def _audio_args(wav, mic):
+    """ffmpeg audio inputs and maps for loopback and/or mic (video is 0)."""
+    inputs = []
+    if wav:
+        inputs += ["-i", str(wav)]
+    if mic:
+        inputs += ["-i", str(mic)]
+    if wav and mic:
+        return inputs, ["-filter_complex",
+                        "[1:a][2:a]amix=inputs=2:duration=longest:"
+                        "normalize=0,alimiter=limit=0.95:level=false[a]",
+                        "-map", "0:v", "-map", "[a]"]
+    if inputs:
+        return inputs, ["-map", "0:v", "-map", "1:a"]
+    return [], []
 
 
 def _probe_duration(path):
@@ -491,7 +773,7 @@ def _prune_buffer():
     # PermissionError. The keep limit leaves only 10 s of slack beyond a save,
     # so skip deletion entirely while one is running.
     if not _save_lock.locked():
-        for pat in ("buf_*.mkv", "aud_*.pcm"):
+        for pat in ("buf_*.mkv", "aud_*.pcm", "mic_*.pcm"):
             keep = (_keep_segments() if pat.startswith("buf")
                     else KEEP_AUDIO_FILES)
             for p in sorted(BUFFER_DIR.glob(pat))[:-keep]:
@@ -582,10 +864,10 @@ def _buffer_supervisor():
 
 
 def _buffer_start():
-    global _buffer_on, _buffer_thread, _buf_audio_thread
+    global _buffer_on, _buffer_thread, _buf_audio_thread, _mic_thread
     if _save_lock.locked():
         return False
-    for t in (_buffer_thread, _buf_audio_thread):
+    for t in (_buffer_thread, _buf_audio_thread, _mic_thread):
         if t and t.is_alive():
             t.join(12)  # let the old ffmpeg exit before reusing the folder
     if _buffer_thread and _buffer_thread.is_alive():
@@ -598,11 +880,14 @@ def _buffer_start():
             pass
     _buffer_stop.clear()
     _buf_audio_stop.clear()
+    _mic_stop.clear()
     _buffer_on = True
     _buffer_thread = threading.Thread(target=_buffer_supervisor, daemon=True)
     _buffer_thread.start()
     _buf_audio_thread = threading.Thread(target=_buffer_audio_loop, daemon=True)
     _buf_audio_thread.start()
+    _mic_thread = threading.Thread(target=_mic_loop, daemon=True)
+    _mic_thread.start()
     _log("replay buffer started")
     return True
 
@@ -612,11 +897,14 @@ def _buffer_stop_all():
     _buffer_on = False
     _buffer_stop.set()
     _buf_audio_stop.set()
+    _mic_stop.set()
     # wait so ffmpeg exits cleanly and no orphan keeps writing to disk
     if _buffer_thread and _buffer_thread is not threading.current_thread():
         _buffer_thread.join(15)
     if _buf_audio_thread and _buf_audio_thread is not threading.current_thread():
         _buf_audio_thread.join(5)
+    if _mic_thread and _mic_thread is not threading.current_thread():
+        _mic_thread.join(5)
 
 
 _save_lock = threading.Lock()
@@ -638,7 +926,7 @@ def _save_replay():
         _log("replay save skipped: already running")
         _notify("A replay save is already running")
         return
-    tmp = listfile = wav = part = None
+    tmp = listfile = wav = mic = part = None
     try:
         if not _buffer_on:
             _log("replay save skipped: buffer off")
@@ -720,11 +1008,14 @@ def _save_replay():
             # Add that lag back or replay audio plays early.
             wav = _buffer_audio_tail(dur, chosen[-1].stat().st_mtime
                                      + REPLAY_MTIME_LAG)
+            mic = _mic_tail(dur, chosen[-1].stat().st_mtime
+                            + REPLAY_MTIME_LAG)
         cmd = [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
                "-i", str(tmp)]
-        if wav:
-            cmd += ["-i", str(wav), "-map", "0:v", "-map", "1:a",
-                    "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-shortest"]
+        ain, amap = _audio_args(wav, mic)
+        cmd += ain + amap
+        if ain:
+            cmd += ["-c:a", "aac", "-b:a", "192k", "-ac", "2", "-shortest"]
         cmd += ["-c:v", "copy", "-tag:v", "hvc1", "-fps_mode", "passthrough",
                 "-movflags", "+faststart", str(part)]
         r = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW,
@@ -741,7 +1032,7 @@ def _save_replay():
         _notify("Replay save failed - see recorder.log")
     finally:
         try:
-            for p in (tmp, listfile, wav, part):
+            for p in (tmp, listfile, wav, mic, part):
                 if p:
                     p.unlink(missing_ok=True)
         finally:
@@ -798,9 +1089,16 @@ def _toggle_buffer(icon=None, item=None):
         _notify("Replay buffer is still stopping - try again")
 
 
+def _toggle_mic(icon=None, item=None):
+    on = _mic_setting() is not None
+    _set_setting("mic_enabled", "false" if on else "true")
+    _notify("Microphone off" if on else "Microphone on")
+
+
 def _start():
     global _proc, _recording, _final, _video, _wav, _audio_thread
-    global _audio_ok, _audio_from_buffer
+    global _audio_ok, _audio_from_buffer, _mic_from_buffer, _mic_manual
+    global _mic_thread
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     BUFFER_DIR.mkdir(parents=True, exist_ok=True)
     _final = OUT_DIR / f"{stamp}.mp4"
@@ -811,7 +1109,17 @@ def _start():
     # Windows rejects a second loopback capture, so reuse the buffer's audio
     _audio_from_buffer = bool(_buffer_on and _buf_audio_thread
                               and _buf_audio_thread.is_alive())
-    _audio_ok = _audio_from_buffer
+    _mic_from_buffer = bool(_buffer_on and _mic_thread
+                            and _mic_thread.is_alive())
+    mic_on = _mic_setting() is not None
+    _mic_manual = bool(mic_on and not _mic_from_buffer)
+    if _mic_manual:
+        _mic_ready.clear()
+        _mic_stop.clear()
+        _mic_thread = threading.Thread(target=_mic_loop, daemon=True)
+        _mic_thread.start()
+        _mic_ready.wait(2)
+    _audio_ok = _audio_from_buffer or mic_on
     _audio_ready.clear()
     _audio_stop.clear()
     if not _audio_from_buffer:
@@ -865,7 +1173,7 @@ def _watch_recording(p):
 
 
 def _stop():
-    global _proc, _recording, _wav, _audio_ok
+    global _proc, _recording, _wav, _audio_ok, _mic_manual, _mic_from_buffer
     p, _proc, _recording = _proc, None, False
     _audio_stop.set()
     if _audio_thread:
@@ -879,21 +1187,38 @@ def _stop():
             p.wait(timeout=STOP_TIMEOUT)
         except Exception:
             p.kill()
+    # Stop the manual mic only after ffmpeg flushed its queue, so the mic
+    # covers the same last frames as the video instead of ending early.
+    if _mic_manual:
+        _mic_stop.set()
+        if _mic_thread:
+            _mic_thread.join(3)
     if _icon:
         _icon.icon = _icon_image("gray")
         _icon.title = "Fragloop - Alt+G"
     if not (_video and _video.exists() and _video.stat().st_size):
         _notify("Nothing recorded - see recorder.log")
         return
-    if _audio_from_buffer:
+    mic = None
+    if _audio_from_buffer or _mic_from_buffer or _mic_manual:
         vdur = _probe_duration(_video)
         # Anchor to when ffmpeg closed the file, not the hotkey press:
         # ffmpeg needs ~0.3 s to start, and anchoring to the press made
         # manual clips play 0.3 s late. The close also flushes the encoder
         # queue, so add its measured lag back before cutting the audio tail.
         end_mtime = _video.stat().st_mtime + MANUAL_MTIME_LAG
-        _wav = _buffer_audio_tail(vdur, end_mtime, manual=True) if vdur > 1 else None
-        _audio_ok = _wav is not None
+        if _audio_from_buffer:
+            _wav = (_buffer_audio_tail(vdur, end_mtime, manual=True)
+                    if vdur > 1 else None)
+            _audio_ok = _wav is not None
+        if vdur > 1 and (_mic_from_buffer or _mic_manual):
+            mic = _mic_tail(vdur, end_mtime, manual=True)
+        if _mic_manual:
+            for pcm in BUFFER_DIR.glob("mic_*.pcm"):
+                try:
+                    pcm.unlink(missing_ok=True)
+                except OSError:
+                    pass
     # Mux beside the final name, then rename, so the clip appears the moment
     # it is complete instead of being hidden as a fresh file.
     part = _final.with_name(_final.stem + ".part.mp4")
@@ -903,9 +1228,11 @@ def _stop():
         pass  # the mux will report the real failure
     cmd = [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
            "-i", str(_video)]
-    if _audio_ok and _wav and _wav.exists() and _wav.stat().st_size > 44:
-        cmd += ["-i", str(_wav), "-map", "0:v", "-map", "1:a",
-                "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-shortest"]
+    loop = _wav if _wav and _wav.exists() and _wav.stat().st_size > 44 else None
+    ain, amap = _audio_args(loop, mic)
+    cmd += ain + amap
+    if ain:
+        cmd += ["-c:a", "aac", "-b:a", "192k", "-ac", "2", "-shortest"]
     cmd += ["-c:v", "copy", "-tag:v", "hvc1", "-fps_mode", "passthrough",
             "-movflags", "+faststart",
             str(part)]
@@ -918,9 +1245,10 @@ def _stop():
     if rc == 0:
         os.replace(part, _final)
         _video.unlink(missing_ok=True)
-        if _wav:
+        for tmp in (_wav, mic):
             try:
-                _wav.unlink(missing_ok=True)
+                if tmp:
+                    tmp.unlink(missing_ok=True)
             except OSError:
                 pass  # still held by the audio thread; harmless leftover
         _log(f"recording saved: {_final.name}")
@@ -1017,6 +1345,8 @@ def main():
             pystray.MenuItem("Take screenshot (Alt+F)", _screenshot),
             pystray.MenuItem("Replay buffer on/off", _toggle_buffer,
                              checked=lambda item: _buffer_on),
+            pystray.MenuItem("Microphone on/off", _toggle_mic,
+                             checked=lambda item: _mic_setting() is not None),
             pystray.MenuItem("Open captures folder", lambda: os.startfile(str(OUT_DIR))),
             pystray.MenuItem("Quit", _quit),
         ),

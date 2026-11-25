@@ -35,7 +35,7 @@ THUMB_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "thumbs"
 BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
 
 THUMB_W, THUMB_H = 148, 84
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 PROBE_TIMEOUT = 10          # seconds; a crafted file must not hang the window
 MAX_IMAGE_BYTES = 128 * 2**20
 MAX_IMAGE_PIXELS = 40_000_000
@@ -312,6 +312,33 @@ def replay_length_text(seconds):
 def replay_label(seconds):
     minutes, sec = divmod(seconds, 60)
     return f"{minutes}:{sec:02d}" if sec else f"{minutes} min"
+
+
+def mic_devices():
+    """WASAPI input names for Preferences; empty if the audio stack fails."""
+    try:
+        import pyaudiowpatch as pyaudio
+        pa = pyaudio.PyAudio()
+    except Exception:
+        return []
+    try:
+        wasapi = pa.get_host_api_info_by_type(pyaudio.paWASAPI)
+        names = []
+        for dev in pa.get_device_info_generator():
+            name = dev["name"]
+            if (dev["hostApi"] == wasapi["index"]
+                    and dev["maxInputChannels"] > 0
+                    and not dev.get("isLoopbackDevice")
+                    and name not in names):
+                names.append(name)
+        return names
+    except Exception:
+        return []
+    finally:
+        try:
+            pa.terminate()
+        except Exception:
+            pass
 
 
 def recycle(path):
@@ -684,8 +711,57 @@ class Settings(QDialog):
         self.replay_hint.setWordWrap(True)
         self.replay_hint.setText(self.replay_text(value))
         lay.addWidget(self.replay_hint)
+
+        self.section(lay, "Microphone")
+        row = QHBoxLayout()
+        label = QLabel("Input")
+        label.setObjectName("rowLabel")
+        row.addWidget(label)
+        row.addStretch(1)
+        self.mic = Combo()
+        self.mic.setAccessibleName("Microphone input")
+        self.mic.setMaximumWidth(320)
+        self.mic.currentIndexChanged.connect(self.on_mic)
+        row.addWidget(self.mic)
+        lay.addLayout(row)
+        self.mic_hint = QLabel("Mixed into replay saves and recordings. "
+                               "System audio is always captured.")
+        self.mic_hint.setObjectName("rowValue")
+        self.mic_hint.setWordWrap(True)
+        lay.addWidget(self.mic_hint)
+        self.refresh_mic()
         lay.addStretch(1)
         return page
+
+    def refresh_mic(self):
+        """Re-read the engine's mic toggle and rebuild the device list."""
+        settings = self.studio.settings
+        settings.sync()
+        device = str(settings.value("mic_device", "") or "")
+        on = settings.value("mic_enabled", False, bool)
+        devices = mic_devices()
+        if device and device not in devices:
+            devices.append(device)  # unplugged, but still the saved choice
+        self.mic.blockSignals(True)
+        self.mic.clear()
+        self.mic.addItems(["Off", "System default", *devices])
+        if not on:
+            self.mic.setCurrentIndex(0)
+        elif device:
+            index = self.mic.findText(device)
+            self.mic.setCurrentIndex(index if index >= 0 else 1)
+        else:
+            self.mic.setCurrentIndex(1)
+        self.mic.blockSignals(False)
+
+    def on_mic(self, index):
+        settings = self.studio.settings
+        settings.setValue("mic_enabled", index != 0)
+        if index == 1:
+            settings.setValue("mic_device", "")
+        elif index > 1:
+            settings.setValue("mic_device", self.mic.currentText())
+        settings.sync()
 
     @staticmethod
     def replay_text(seconds):
@@ -1328,6 +1404,7 @@ class Studio(QMainWindow):
         center = self.frameGeometry().center()
         dlg.move(center.x() - dlg.width() // 2,
                  center.y() - dlg.height() // 2)
+        dlg.refresh_mic()  # the tray toggle can change it while hidden
         dlg.show()
         dlg.raise_()
         dlg.activateWindow()

@@ -6,6 +6,7 @@ import os
 import tempfile
 import threading
 import time
+import wave
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -351,13 +352,51 @@ def test_screenshot_parts_stay_hidden(root):
     check(shot not in files, "screenshot part was listed")
 
 
+def test_audio_args(root):
+    import recorder
+    check(recorder._audio_args(None, None) == ([], []),
+          "no audio tracks should add no inputs")
+    inputs, maps = recorder._audio_args("a.wav", None)
+    check(inputs == ["-i", "a.wav"]
+          and maps == ["-map", "0:v", "-map", "1:a"],
+          f"loopback args {inputs!r} {maps!r}")
+    inputs, maps = recorder._audio_args(None, "m.wav")
+    check(inputs == ["-i", "m.wav"]
+          and maps == ["-map", "0:v", "-map", "1:a"],
+          f"mic-only args {inputs!r} {maps!r}")
+    inputs, maps = recorder._audio_args("a.wav", "m.wav")
+    check(inputs == ["-i", "a.wav", "-i", "m.wav"], f"mix inputs {inputs!r}")
+    check(any("amix=inputs=2" in arg for arg in maps), f"mix maps {maps!r}")
+    check("[a]" in maps and "0:v" in maps, f"mix output map {maps!r}")
+
+
+def test_pcm_tail(root):
+    import recorder
+    original = recorder.BUFFER_DIR
+    recorder.BUFFER_DIR = root
+    try:
+        rate, channels, seconds = 48000, 2, 1
+        samples = b"\x01\x00" * channels * rate * 2  # 2 s of non-silence
+        (root / "mic_1.pcm").write_bytes(samples)
+        wav = recorder._pcm_tail("mic_*.pcm", rate, channels, seconds,
+                                 time.time(), 0.0)
+        with wave.open(str(wav), "rb") as w:
+            frames = w.getnframes()
+            data = w.readframes(frames)
+        check(frames == rate * seconds,
+              f"tail frames {frames} != {rate * seconds}")
+        check(data == samples[-len(data):], "tail kept the newest samples")
+    finally:
+        recorder.BUFFER_DIR = original
+
+
 def main():
     tests = [test_types_and_labels, test_animations,
              test_open_does_not_block, test_failed_open_reports_on_ui_thread,
              test_library_filter, test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
-             test_concat_quoting]
+             test_concat_quoting, test_audio_args, test_pcm_tail]
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
         for test in tests:
