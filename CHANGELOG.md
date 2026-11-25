@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 - 2026-11-26
+
+- Preferences is taller and each page scrolls, so the Microphone input is
+  fully visible instead of being clipped at the bottom edge.
+
 ## 0.4.0 - 2026-11-26
 
 - Optional microphone: choose Off, System default or a specific input in

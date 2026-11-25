@@ -35,7 +35,7 @@ THUMB_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "thumbs"
 BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
 
 THUMB_W, THUMB_H = 148, 84
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.4.1"
 PROBE_TIMEOUT = 10          # seconds; a crafted file must not hang the window
 MAX_IMAGE_BYTES = 128 * 2**20
 MAX_IMAGE_PIXELS = 40_000_000
@@ -548,7 +548,7 @@ class Settings(QDialog):
         self.setWindowFlag(Qt.FramelessWindowHint, True)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setWindowModality(Qt.NonModal)
-        self.setFixedSize(760, 520)
+        self.setFixedSize(760, 600)
 
         panel = QWidget()
         panel.setObjectName("prefs")
@@ -617,7 +617,15 @@ class Settings(QDialog):
         for page in (self.general_page(), self.appearance_page(),
                      self.clips_page(), self.storage_page(),
                      self.about_page()):
-            self.stack.addWidget(page)
+            # Pages can outgrow the fixed window (the General page already
+            # does at 100% scaling), so let each one scroll instead of
+            # clipping its last rows.
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QFrame.NoFrame)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            scroll.setWidget(page)
+            self.stack.addWidget(scroll)
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
         self.nav.setCurrentRow(0)
 
