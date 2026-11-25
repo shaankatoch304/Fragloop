@@ -14,10 +14,11 @@ manually, and `Alt+F` saves a PNG screenshot.
 
 Prebuilt Windows builds are on the [Releases](https://github.com/shaankatoch304/Fragloop/releases) page.
 
-- **Setup (recommended)** — `Fragloop-0.2.0-win64-setup.exe`: per-user install,
+- **Setup (recommended)** — `Fragloop-0.3.0-win64-setup.exe`: per-user install,
   Start menu shortcut, optional autostart.
-- **Portable** — `Fragloop-0.2.0-win64-portable.zip`: extract anywhere and run
+- **Portable** — `Fragloop-0.3.0-win64-portable.zip`: extract anywhere and run
   `Fragloop.exe`.
+- **Checksums** — `SHA256SUMS.txt` lists the hashes of both builds.
 
 The builds are unsigned, so SmartScreen may show "Windows protected your PC".
 Choose **More info → Run anyway**.
@@ -38,7 +39,7 @@ Choose **More info → Run anyway**.
   card with a record dot; each row names its type beside the badge.
 - **Instant save feedback** — a replay save or a recording stop appears in the
   library immediately as a "Saving…" row, then becomes the finished clip.
-- **Native window and tray** - a frameless, translucent clip library with
+- **Native window and tray** — a frameless, translucent clip library with
   thumbnails, clip count and total size, a preferences window for appearance,
   clips and storage, and hotkeys that work while a game has focus.
 - **MP4 (10-bit HEVC + AAC)** — roughly half the H.264 size at the same
