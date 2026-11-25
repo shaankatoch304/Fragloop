@@ -33,6 +33,8 @@
   cannot inject markup into the interface.
 - Saving a replay or stopping a recording now shows a "Saving…" row in the
   library immediately, then swaps in the finished clip and thumbnail.
+- Replay saves no longer overwrite an existing clip when two saves share a
+  timestamp; the buffer also releases its ffmpeg log handle after launch.
 
 ## 0.2.0 - 2026-11-22
 
