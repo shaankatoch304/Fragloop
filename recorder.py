@@ -663,9 +663,14 @@ def _save_replay():
             pass
         stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         out = OUT_DIR / f"{stamp}_replay.mp4"
+        part = out.with_name(out.stem + ".part.mp4")
+        n = 2
+        while out.exists() or part.exists():
+            out = OUT_DIR / f"{stamp}_replay_{n}.mp4"
+            part = out.with_name(out.stem + ".part.mp4")
+            n += 1
         # Mux beside the final name, then rename, so the library shows the
         # replay the moment it is complete instead of hiding it for 2 s.
-        part = out.with_name(out.stem + ".part.mp4")
         try:
             part.touch()  # show the "Saving…" row before the concat/mux
         except OSError:
