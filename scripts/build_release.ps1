@@ -3,8 +3,17 @@
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$version = '0.2.0'
 Set-Location $root
+
+# studio.py owns the version; fail early if the other manifests drift.
+$match = Select-String -Path studio.py -Pattern '^APP_VERSION = "([0-9]+\.[0-9]+\.[0-9]+)"$'
+if (-not $match) { throw 'APP_VERSION not found in studio.py' }
+$version = $match.Matches[0].Groups[1].Value
+foreach ($file in 'version_info.txt', 'installer\Fragloop.iss') {
+    if (-not (Select-String -Path $file -Pattern ([regex]::Escape($version)) -Quiet)) {
+        throw "$file is not on version $version"
+    }
+}
 
 Get-Process Fragloop -ErrorAction SilentlyContinue | Stop-Process -Force
 Get-Process ffmpeg -ErrorAction SilentlyContinue | Stop-Process -Force

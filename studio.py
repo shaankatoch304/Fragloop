@@ -35,7 +35,7 @@ THUMB_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "thumbs"
 BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
 
 THUMB_W, THUMB_H = 148, 84
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 PROBE_TIMEOUT = 10          # seconds; a crafted file must not hang the window
 MAX_IMAGE_BYTES = 128 * 2**20
 MAX_IMAGE_PIXELS = 40_000_000

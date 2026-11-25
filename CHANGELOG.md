@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - 2026-11-26
 
 - Preferences opens with Ctrl+, and double-clicking the title bar
   maximizes or restores the window.

@@ -1,7 +1,7 @@
 ; Fragloop installer (Inno Setup 6)
 
 #define MyAppName "Fragloop"
-#define MyAppVersion "0.2.0"
+#define MyAppVersion "0.3.0"
 #define MyAppPublisher "Fragloop"
 #define MyAppExeName "Fragloop.exe"
 
@@ -11,7 +11,7 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-VersionInfoVersion=0.2.0.0
+VersionInfoVersion=0.3.0.0
 DefaultDirName={localappdata}\Programs\Fragloop
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
