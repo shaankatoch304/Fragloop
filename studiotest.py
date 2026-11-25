@@ -333,12 +333,31 @@ def test_library_sort(root):
           f"oldest order {oldest!r}")
 
 
+def test_screenshot_parts_stay_hidden(root):
+    shot = root / "hidden.part.png"
+    shot.write_bytes(b"")
+    os.utime(shot, None)
+
+    class Settings:
+        def value(self, key, default=None, type=None):
+            return True
+
+    original = studio.OUT_DIR
+    studio.OUT_DIR = root
+    try:
+        files = studio.Studio.clips(SimpleNamespace(settings=Settings()))
+    finally:
+        studio.OUT_DIR = original
+    check(shot not in files, "screenshot part was listed")
+
+
 def main():
     tests = [test_types_and_labels, test_animations,
              test_open_does_not_block, test_failed_open_reports_on_ui_thread,
              test_library_filter, test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
-             test_image_caps, test_concat_quoting]
+             test_screenshot_parts_stay_hidden, test_image_caps,
+             test_concat_quoting]
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
         for test in tests:
