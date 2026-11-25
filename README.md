@@ -36,6 +36,8 @@ Choose **More info → Run anyway**.
 - **Themed clip cards** — screenshots get a warm card with a camera badge,
   replay saves a violet card with a replay arrow, and manual recordings a red
   card with a record dot; each row names its type beside the badge.
+- **Instant save feedback** — a replay save or a recording stop appears in the
+  library immediately as a "Saving…" row, then becomes the finished clip.
 - **Native window and tray** - a frameless, translucent clip library with
   thumbnails, clip count and total size, a preferences window for appearance,
   clips and storage, and hotkeys that work while a game has focus.
