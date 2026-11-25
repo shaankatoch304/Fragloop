@@ -281,11 +281,34 @@ def test_pending_rows(root):
     app.processEvents()
 
 
+def test_pending_finishes(root):
+    part = root / "2026-11-26_00-00-00_replay.part.mp4"
+    part.write_bytes(b"x")
+    os.utime(part, None)
+    row = row_for(part)
+    check(row.pending, "part row not marked as saving")
+
+    final = root / "2026-11-26_00-00-00_replay.mp4"
+    part.rename(final)
+    final_row = row_for(final)
+    check(not final_row.pending, "finished row still marked as saving")
+    check(final_row.buffer, "finished replay lost its type")
+    meta = final_row.findChild(QLabel, "clipMeta")
+    check(meta is not None and "Saving" not in meta.text(),
+          f"finished meta {meta and meta.text()!r}")
+
+    for widget in (row, final_row):
+        widget.close()
+        widget.deleteLater()
+    app.processEvents()
+
+
 def main():
     tests = [test_types_and_labels, test_animations,
              test_open_does_not_block, test_failed_open_reports_on_ui_thread,
              test_library_filter, test_filename_is_plain_text,
-             test_pending_rows, test_image_caps, test_concat_quoting]
+             test_pending_rows, test_pending_finishes,
+             test_image_caps, test_concat_quoting]
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
         for test in tests:
