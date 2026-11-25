@@ -303,11 +303,41 @@ def test_pending_finishes(root):
     app.processEvents()
 
 
+def test_library_sort(root):
+    names = ["sort_a.mp4", "sort_b.mp4", "sort_c.mp4"]
+    for index, name in enumerate(names):
+        path = root / name
+        path.write_bytes(b"")
+        stamp = 3000 + index
+        os.utime(path, (stamp, stamp))
+
+    class Settings:
+        def __init__(self, newest):
+            self.newest = newest
+
+        def value(self, key, default=None, type=None):
+            return self.newest if key == "sort_newest" else default
+
+    original = studio.OUT_DIR
+    studio.OUT_DIR = root
+    try:
+        newest = [p.name for p in studio.Studio.clips(
+            SimpleNamespace(settings=Settings(True))) if p.name in names]
+        oldest = [p.name for p in studio.Studio.clips(
+            SimpleNamespace(settings=Settings(False))) if p.name in names]
+    finally:
+        studio.OUT_DIR = original
+    check(newest == ["sort_c.mp4", "sort_b.mp4", "sort_a.mp4"],
+          f"newest order {newest!r}")
+    check(oldest == ["sort_a.mp4", "sort_b.mp4", "sort_c.mp4"],
+          f"oldest order {oldest!r}")
+
+
 def main():
     tests = [test_types_and_labels, test_animations,
              test_open_does_not_block, test_failed_open_reports_on_ui_thread,
              test_library_filter, test_filename_is_plain_text,
-             test_pending_rows, test_pending_finishes,
+             test_pending_rows, test_pending_finishes, test_library_sort,
              test_image_caps, test_concat_quoting]
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
