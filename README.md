@@ -14,9 +14,9 @@ manually, and `Alt+F` saves a PNG screenshot.
 
 Prebuilt Windows builds are on the [Releases](https://github.com/shaankatoch304/Fragloop/releases) page.
 
-- **Setup (recommended)** — `Fragloop-0.4.2-win64-setup.exe`: per-user install,
+- **Setup (recommended)** — `Fragloop-0.4.3-win64-setup.exe`: per-user install,
   Start menu shortcut, optional autostart.
-- **Portable** — `Fragloop-0.4.2-win64-portable.zip`: extract anywhere and run
+- **Portable** — `Fragloop-0.4.3-win64-portable.zip`: extract anywhere and run
   `Fragloop.exe`.
 - **Checksums** — `SHA256SUMS.txt` lists the hashes of both builds.
 

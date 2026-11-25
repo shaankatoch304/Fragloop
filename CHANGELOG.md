@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.3 - 2026-11-26
+
+- Preferences pages now use the same near-black background as the main
+  window instead of the lighter default scroll-area panel color.
+
 ## 0.4.2 - 2026-11-26
 
 - Preferences controls use neutral dark colors instead of the red recording

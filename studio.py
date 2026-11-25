@@ -35,7 +35,7 @@ THUMB_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "thumbs"
 BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
 
 THUMB_W, THUMB_H = 148, 84
-APP_VERSION = "0.4.2"
+APP_VERSION = "0.4.3"
 PROBE_TIMEOUT = 10          # seconds; a crafted file must not hang the window
 MAX_IMAGE_BYTES = 128 * 2**20
 MAX_IMAGE_PIXELS = 40_000_000
@@ -136,6 +136,7 @@ QPushButton#del {
 QPushButton#del:hover { background: #1c1216; border-color: #35202a; }
 QScrollArea { border: none; background: transparent; }
 QWidget#qt_scrollarea_viewport { background: transparent; }
+QScrollArea > QWidget > QWidget { background: transparent; }
 QWidget#clipHost { background: transparent; }
 QWidget#shotRow, QWidget#bufferRow, QWidget#recordRow {
     background: transparent;
