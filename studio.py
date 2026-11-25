@@ -17,8 +17,8 @@ from pathlib import Path
 from PySide6.QtCore import (QByteArray, QEasingCurve, QEvent,
                             QFileSystemWatcher, QPointF, QRectF, QSettings,
                             QSize, Signal, Qt, QTimer, QVariantAnimation)
-from PySide6.QtGui import (QColor, QIcon, QImage, QKeySequence, QPainter,
-                           QPainterPath, QPen, QPixmap, QShortcut)
+from PySide6.QtGui import (QColor, QIcon, QImage, QImageReader, QKeySequence,
+                           QPainter, QPainterPath, QPen, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                                QFrame, QGraphicsOpacityEffect, QHBoxLayout,
                                QLabel, QListWidget, QListWidgetItem,
@@ -36,6 +36,9 @@ BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
 
 THUMB_W, THUMB_H = 148, 84
 APP_VERSION = "0.2.0"
+PROBE_TIMEOUT = 10          # seconds; a crafted file must not hang the window
+MAX_IMAGE_BYTES = 128 * 2**20
+MAX_IMAGE_PIXELS = 40_000_000
 
 QSS = """
 QMainWindow { background: transparent; }
@@ -201,7 +204,8 @@ QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 
 def _run(args):
     return subprocess.run(args, capture_output=True, text=True,
-                          creationflags=subprocess.CREATE_NO_WINDOW)
+                          creationflags=subprocess.CREATE_NO_WINDOW,
+                          timeout=PROBE_TIMEOUT)
 
 
 _durations = {}
@@ -228,14 +232,29 @@ def duration(path):
     return value
 
 
+def load_image(path):
+    """Read a preview with size caps; a crafted image must not exhaust memory."""
+    try:
+        if path.stat().st_size > MAX_IMAGE_BYTES:
+            return None
+    except OSError:
+        return None
+    reader = QImageReader(str(path))
+    size = reader.size()
+    if size.isValid() and size.width() * size.height() > MAX_IMAGE_PIXELS:
+        return None
+    img = reader.read()
+    return None if img.isNull() else img
+
+
 def thumbnail(path):
     """A frame 10% in, cached next to the app data."""
     THUMB_DIR.mkdir(parents=True, exist_ok=True)
     if path.suffix.lower() == ".png":
         dest = THUMB_DIR / f"{path.stem}_{int(path.stat().st_mtime)}_shot.png"
         if not dest.exists():
-            img = QImage(str(path))
-            if img.isNull():
+            img = load_image(path)
+            if img is None:
                 return None
             img = img.scaled(THUMB_W * 2, THUMB_H * 2,
                              Qt.KeepAspectRatioByExpanding,
@@ -247,9 +266,12 @@ def thumbnail(path):
     if not dest.exists():
         dur = duration(path)
         ss = max(1.0, dur * 0.1) if dur else 1.0
-        _run([str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
-              "-ss", f"{ss:.2f}", "-i", str(path), "-frames:v", "1",
-              "-vf", f"scale={THUMB_W * 2}:-1", str(dest)])
+        try:
+            _run([str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
+                  "-ss", f"{ss:.2f}", "-i", str(path), "-frames:v", "1",
+                  "-vf", f"scale={THUMB_W * 2}:-1", str(dest)])
+        except (OSError, subprocess.TimeoutExpired):
+            return None
     return dest if dest.exists() else None
 
 
@@ -756,6 +778,7 @@ class Settings(QDialog):
         label.setObjectName("rowLabel")
         where = QLabel(str(path))
         where.setObjectName("path")
+        where.setTextFormat(Qt.PlainText)
         where.setTextInteractionFlags(Qt.TextSelectableByMouse)
         col.addWidget(label)
         col.addWidget(where)
@@ -1011,6 +1034,8 @@ class ClipRow(QWidget):
         text.setSpacing(4)
         name = QLabel(path.stem)
         name.setObjectName("clipName")
+        # A filename is untrusted text; never let it render as rich text.
+        name.setTextFormat(Qt.PlainText)
         name.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         meta = QLabel()
         meta.setObjectName("clipMeta")
@@ -1139,8 +1164,11 @@ class ClipRow(QWidget):
             self.open_failed.emit(str(e))
 
     def _open_failed(self, message):
-        QMessageBox.warning(None, "Could not open",
-                            f"{self.path.name}\n\n{message}")
+        box = QMessageBox(QMessageBox.Warning, "Could not open",
+                          f"{self.path.name}\n\n{message}",
+                          QMessageBox.Ok)
+        box.setTextFormat(Qt.PlainText)
+        box.exec()
 
 
 class Studio(QMainWindow):
@@ -1302,6 +1330,7 @@ class Studio(QMainWindow):
         box = QMessageBox(self)
         box.setWindowTitle("Delete clip")
         box.setText(f"Move {path.name} to the Recycle Bin?")
+        box.setTextFormat(Qt.PlainText)
         box.setIcon(QMessageBox.Question)
         yes = box.addButton("Delete", QMessageBox.YesRole)
         cancel = box.addButton("Cancel", QMessageBox.RejectRole)

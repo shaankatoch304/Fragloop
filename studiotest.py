@@ -179,10 +179,60 @@ def test_library_filter(root):
     check(got == want, f"library filter {got!r} != {want!r}")
 
 
+def test_filename_is_plain_text(root):
+    path = root / "a & b.mp4"
+    path.write_bytes(b"")
+    row = row_for(path)
+    name = row.findChild(QLabel, "clipName")
+    check(name is not None and name.text() == path.stem,
+          f"name label {name and name.text()!r}")
+    check(name.textFormat() == Qt.PlainText, "filename rendered as rich text")
+    row.close()
+    row.deleteLater()
+    app.processEvents()
+
+
+def test_image_caps(root):
+    # A tiny file claiming huge dimensions must be rejected before decoding.
+    import struct
+    import zlib
+
+    def chunk(kind, data):
+        return (struct.pack(">I", len(data)) + kind + data
+                + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
+
+    bomb = root / "bomb.png"
+    bomb.write_bytes(
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", 100_000, 100_000,
+                                     8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(b"\x00"))
+        + chunk(b"IEND", b""))
+    check(studio.load_image(bomb) is None, "huge image dimensions were loaded")
+
+    tiny = root / "tiny.png"
+    make_png(tiny)
+    check(studio.load_image(tiny) is not None, "valid image was rejected")
+    original = studio.MAX_IMAGE_BYTES
+    studio.MAX_IMAGE_BYTES = 8
+    try:
+        check(studio.load_image(tiny) is None, "oversized file was loaded")
+    finally:
+        studio.MAX_IMAGE_BYTES = original
+
+
+def test_concat_quoting(root):
+    import recorder
+    line = recorder._concat_line(Path("C:/x/it's/buf_1.mkv"))
+    check(line == "file 'C:/x/it'\\''s/buf_1.mkv'",
+          f"concat path not quoted safely: {line!r}")
+
+
 def main():
     tests = [test_types_and_labels, test_animations,
              test_open_does_not_block, test_failed_open_reports_on_ui_thread,
-             test_library_filter]
+             test_library_filter, test_filename_is_plain_text,
+             test_image_caps, test_concat_quoting]
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
         for test in tests:

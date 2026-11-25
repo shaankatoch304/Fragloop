@@ -473,7 +473,7 @@ def _probe_duration(path):
         out = subprocess.run(
             [str(FFPROBE), "-v", "error", "-show_entries", "format=duration",
              "-of", "csv=p=0", str(path)],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=10,
             creationflags=subprocess.CREATE_NO_WINDOW).stdout.strip()
         return float(out)
     except Exception:
@@ -619,6 +619,11 @@ def _buffer_save(icon=None, item=None):
     threading.Thread(target=_save_replay, daemon=True).start()
 
 
+def _concat_line(path):
+    """Quote a path for ffmpeg's concat demuxer; a raw quote would inject."""
+    return "file '" + path.as_posix().replace("'", "'\\''") + "'"
+
+
 def _save_replay():
     if not _save_lock.acquire(blocking=False):
         _log("replay save skipped: already running")
@@ -671,14 +676,14 @@ def _save_replay():
             # (visible judder every 2 s), so declare the exact segment length.
             lines = []
             for p in parts:
-                lines += [f"file '{p.as_posix()}'",
+                lines += [_concat_line(p),
                           f"duration {SEGMENT_SECONDS:.6f}"]
             listfile.write_text("\n".join(lines), encoding="utf-8")
             return subprocess.run(
                 [str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
                  "-f", "concat", "-safe", "0", "-i", str(listfile),
                  "-c", "copy", str(tmp)],
-                creationflags=subprocess.CREATE_NO_WINDOW)
+                creationflags=subprocess.CREATE_NO_WINDOW, timeout=300)
 
         _notify("Saving last minutes...")
         r = concat(chosen)
@@ -704,7 +709,8 @@ def _save_replay():
                     "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-shortest"]
         cmd += ["-c:v", "copy", "-tag:v", "hvc1", "-fps_mode", "passthrough",
                 "-movflags", "+faststart", str(part)]
-        r = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
+        r = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW,
+                           timeout=600)
         if r.returncode == 0:
             os.replace(part, out)
             _log(f"replay saved: {out.name} ({dur:.0f}s)")
@@ -881,8 +887,13 @@ def _stop():
     cmd += ["-c:v", "copy", "-tag:v", "hvc1", "-fps_mode", "passthrough",
             "-movflags", "+faststart",
             str(part)]
-    r = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
-    if r.returncode == 0:
+    try:
+        r = subprocess.run(cmd, creationflags=subprocess.CREATE_NO_WINDOW,
+                           timeout=600)
+        rc = r.returncode
+    except subprocess.TimeoutExpired:
+        rc = "timeout"
+    if rc == 0:
         os.replace(part, _final)
         _video.unlink(missing_ok=True)
         if _wav:
@@ -893,7 +904,7 @@ def _stop():
         _log(f"recording saved: {_final.name}")
         _notify(f"Saved {_final.name}")
     else:
-        _log(f"recording mux failed ({r.returncode})")
+        _log(f"recording mux failed ({rc})")
         part.unlink(missing_ok=True)
         _final.unlink(missing_ok=True)
         _video.rename(_final.with_suffix(".mkv"))

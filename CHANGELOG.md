@@ -24,6 +24,13 @@
 - Clip rows animate on hover and press, and double-clicking starts the player
   off the UI thread, so the window stays responsive and reacts immediately.
 - The main window no longer shows hotkey hints; they stay in Preferences.
+- Media in `Videos\Captures` is treated as untrusted: preview thumbnails
+  reject oversized or malformed images, and ffmpeg/ffprobe probes time out
+  instead of freezing the window or holding the recorder busy forever.
+- Replay saves quote buffer paths before handing them to ffmpeg's concat
+  demuxer, so an apostrophe in the profile path cannot inject directives.
+- Clip names, folder paths and dialogs render as plain text, so a filename
+  cannot inject markup into the interface.
 
 ## 0.2.0 - 2026-11-22
 
