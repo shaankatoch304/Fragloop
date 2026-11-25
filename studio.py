@@ -138,7 +138,7 @@ QWidget#shotWash {
         stop:0 rgba(255, 216, 140, 0.11),
         stop:0.55 rgba(255, 206, 112, 0.060),
         stop:1 rgba(255, 232, 176, 0.090));
-    border: 1px solid rgba(255, 220, 150, 0.28);
+    border: 1px solid rgba(255, 220, 150, 0.20);
     border-radius: 16px;
 }
 QWidget#bufferWash {
@@ -146,7 +146,7 @@ QWidget#bufferWash {
         stop:0 rgba(200, 148, 255, 0.179),
         stop:0.55 rgba(172, 112, 255, 0.101),
         stop:1 rgba(224, 180, 255, 0.146));
-    border: 1px solid rgba(206, 158, 255, 0.426);
+    border: 1px solid rgba(206, 158, 255, 0.32);
     border-radius: 16px;
 }
 QWidget#recordWash {
@@ -154,39 +154,39 @@ QWidget#recordWash {
         stop:0 rgba(255, 64, 64, 0.179),
         stop:0.55 rgba(232, 32, 32, 0.101),
         stop:1 rgba(255, 112, 112, 0.146));
-    border: 1px solid rgba(255, 84, 84, 0.426);
+    border: 1px solid rgba(255, 84, 84, 0.32);
     border-radius: 16px;
 }
 QLabel#shotBadge {
     background: rgba(255, 214, 140, 0.13);
-    border: 1px solid rgba(255, 214, 140, 0.30);
-    border-radius: 7px;
+    border: 1px solid rgba(255, 214, 140, 0.22);
+    border-radius: 6px;
 }
 QLabel#bufferBadge {
     background: rgba(200, 148, 255, 0.179);
-    border: 1px solid rgba(200, 148, 255, 0.403);
-    border-radius: 7px;
+    border: 1px solid rgba(200, 148, 255, 0.30);
+    border-radius: 6px;
 }
 QLabel#recordBadge {
     background: rgba(255, 64, 64, 0.179);
-    border: 1px solid rgba(255, 64, 64, 0.403);
-    border-radius: 7px;
+    border: 1px solid rgba(255, 64, 64, 0.30);
+    border-radius: 6px;
 }
 QLabel#shotTag, QLabel#bufferTag, QLabel#recordTag {
     font-family: "Segoe UI"; font-size: 11px; font-weight: 600;
-    padding: 0 9px; border-radius: 7px;
+    padding: 0 9px; border-radius: 6px;
 }
 QLabel#shotTag {
     color: #ffd88c; background: rgba(255, 214, 140, 0.13);
-    border: 1px solid rgba(255, 214, 140, 0.30);
+    border: 1px solid rgba(255, 214, 140, 0.22);
 }
 QLabel#bufferTag {
     color: #d2a4ff; background: rgba(200, 148, 255, 0.179);
-    border: 1px solid rgba(200, 148, 255, 0.403);
+    border: 1px solid rgba(200, 148, 255, 0.30);
 }
 QLabel#recordTag {
     color: #ff6b6b; background: rgba(255, 64, 64, 0.179);
-    border: 1px solid rgba(255, 64, 64, 0.403);
+    border: 1px solid rgba(255, 64, 64, 0.30);
 }
 QLabel#clipName { color: #e6e9f0; font-family: "Segoe UI"; font-size: 13px; font-weight: 600; }
 QLabel#clipMeta { color: #79829a; font-family: "Segoe UI"; font-size: 11px; }
