@@ -541,16 +541,20 @@ def _buffer_supervisor():
             "-reset_timestamps", "1",
             str(BUFFER_DIR / f"buf_{int(time.time())}_%06d.mkv"),
         ]
+        log = None
         try:
+            log = open(BUFFER_DIR / "ffmpeg.log", "ab")
             _buffer_proc = subprocess.Popen(
-                cmd, stdout=subprocess.DEVNULL,
-                stderr=open(BUFFER_DIR / "ffmpeg.log", "ab"),
+                cmd, stdout=subprocess.DEVNULL, stderr=log,
                 creationflags=subprocess.CREATE_NO_WINDOW)
         except OSError as e:
             _log(f"buffer ffmpeg could not start: {e!r}")
             _notify("Replay buffer could not start - see recorder.log")
             _buffer_on = False
             return
+        finally:
+            if log:
+                log.close()  # the child keeps its own handle
         started = time.time()
         _log("buffer ffmpeg started")
         while _buffer_proc.poll() is None and not _buffer_stop.is_set():
