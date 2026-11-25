@@ -35,7 +35,7 @@ THUMB_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "thumbs"
 BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
 
 THUMB_W, THUMB_H = 148, 84
-APP_VERSION = "0.4.1"
+APP_VERSION = "0.4.2"
 PROBE_TIMEOUT = 10          # seconds; a crafted file must not hang the window
 MAX_IMAGE_BYTES = 128 * 2**20
 MAX_IMAGE_PIXELS = 40_000_000
@@ -88,16 +88,20 @@ QPushButton#setOpen {
     font-family: "Segoe UI"; font-size: 11px;
 }
 QPushButton#setOpen:hover { background: #1a1f29; border-color: #2b3342; }
+QPushButton#prefsClose {
+    background: transparent; border: none; border-radius: 10px;
+}
+QPushButton#prefsClose:hover { background: #1a1f29; }
 QSlider::groove:horizontal {
     height: 4px; background: #1a1f28; border-radius: 2px;
 }
-QSlider::sub-page:horizontal { background: #ff4d5e; border-radius: 2px; }
+QSlider::sub-page:horizontal { background: #3a4354; border-radius: 2px; }
 QSlider::handle:horizontal {
     background: #e6e9f0; width: 12px; margin: -5px 0; border-radius: 6px;
 }
 QSlider::handle:horizontal:hover { background: #ffffff; }
-QSlider::handle:horizontal:pressed { background: #ff8a95; }
-QPushButton#setOpen:focus, QComboBox:focus { border-color: #ff4d5e; }
+QSlider::handle:horizontal:pressed { background: #c3cad8; }
+QPushButton#setOpen:focus, QComboBox:focus { border-color: #6f7789; }
 QCheckBox {
     color: #c3cad8; font-family: "Segoe UI"; font-size: 12px; spacing: 8px;
 }
@@ -105,7 +109,7 @@ QCheckBox::indicator {
     width: 16px; height: 16px; border: 1px solid #2b3342;
     border-radius: 5px; background: #14181f;
 }
-QCheckBox::indicator:checked { background: #ff4d5e; border-color: #ff4d5e; }
+QCheckBox::indicator:checked { background: #000000; border-color: #6f7789; }
 QComboBox {
     color: #e6e9f0; background: #14181f; border: 1px solid #222835;
     border-radius: 10px; padding: 5px 10px;
@@ -504,7 +508,7 @@ class Check(QCheckBox):
             return
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        pen = QPen(QColor("#0b0d11"), 1.8)
+        pen = QPen(QColor("#eef1f6"), 1.8)
         pen.setCapStyle(Qt.RoundCap)
         pen.setJoinStyle(Qt.RoundJoin)
         p.setPen(pen)
@@ -517,8 +521,10 @@ class Check(QCheckBox):
 class CloseDot(QPushButton):
     """Close control drawn as a record dot, like the app mark."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, color="#ff4d5e", hover="#ff8a95"):
         super().__init__(parent)
+        self._color = QColor(color)
+        self._hover = QColor(hover)
         self.setObjectName("winbtnClose")
         self.setFixedSize(36, 32)
         self.setToolTip("Close")
@@ -530,7 +536,7 @@ class CloseDot(QPushButton):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#ff8a95" if self.underMouse() else "#ff4d5e"))
+        p.setBrush(self._hover if self.underMouse() else self._color)
         d = 12
         p.drawEllipse(QRectF((self.width() - d) / 2,
                              (self.height() - d) / 2, d, d))
@@ -571,7 +577,8 @@ class Settings(QDialog):
         title.setObjectName("prefsTitle")
         head.addWidget(title)
         head.addStretch(1)
-        close = CloseDot(self)
+        close = CloseDot(self, "#6f7789", "#c3cad8")
+        close.setObjectName("prefsClose")
         close.clicked.connect(self.close)
         head.addWidget(close)
         outer.addWidget(header)
@@ -904,7 +911,7 @@ class Settings(QDialog):
         text.setWordWrap(True)
         lay.addWidget(text)
         link = QLabel('<a href="https://github.com/shaankatoch304/Fragloop" '
-                      'style="color:#ff8a95; text-decoration:none;">'
+                      'style="color:#aab2c4; text-decoration:none;">'
                       'GitHub repository</a>')
         link.setOpenExternalLinks(True)
         lay.addWidget(link)

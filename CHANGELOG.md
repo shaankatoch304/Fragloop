@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 - 2026-11-26
+
+- Preferences controls use neutral dark colors instead of the red recording
+  accent, so checkboxes, the slider, the close button and the focused input
+  no longer stand out in red.
+
 ## 0.4.1 - 2026-11-26
 
 - Preferences is taller and each page scrolls, so the Microphone input is
