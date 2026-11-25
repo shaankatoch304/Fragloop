@@ -1043,8 +1043,9 @@ class ClipRow(QWidget):
         meta = QLabel()
         meta.setObjectName("clipMeta")
         meta.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        when = time.strftime("%H:%M", time.localtime(path.stat().st_mtime))
-        size = size_text(path.stat().st_size)
+        st = path.stat()
+        when = time.strftime("%H:%M", time.localtime(st.st_mtime))
+        size = size_text(st.st_size)
         label = ("Screenshot" if self.shot else
                  "Replay" if self.buffer else "Recording")
         if self.pending:
