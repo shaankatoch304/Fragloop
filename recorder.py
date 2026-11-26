@@ -787,10 +787,16 @@ def _prune_buffer():
     # PermissionError. The keep limit leaves only 10 s of slack beyond a save,
     # so skip deletion entirely while one is running.
     if not _save_lock.locked():
-        for pat in ("buf_*.mkv", "aud_*.pcm", "mic_*.pcm"):
-            keep = (_keep_segments() if pat.startswith("buf")
-                    else KEEP_AUDIO_FILES)
-            for p in sorted(BUFFER_DIR.glob(pat))[:-keep]:
+        for pat, keep in (("buf_*.mkv", _keep_segments()),
+                          ("aud_*.pcm", KEEP_AUDIO_FILES),
+                          ("mic_*.pcm", KEEP_AUDIO_FILES),
+                          ("tail_*.wav", 0),
+                          ("save_*.mkv", 0),
+                          ("list_*.txt", 0)):
+            files = sorted(BUFFER_DIR.glob(pat))
+            if keep:
+                files = files[:-keep]
+            for p in files:
                 try:
                     p.unlink(missing_ok=True)
                 except OSError:

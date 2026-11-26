@@ -405,6 +405,34 @@ def test_pending_context_menu(root):
     app.processEvents()
 
 
+def test_prune_cleans_stale_temp_files(root):
+    import recorder
+    original_dir = recorder.BUFFER_DIR
+    original_disk = recorder.shutil.disk_usage
+    original_keep = recorder._keep_segments
+    original_audio = recorder.KEEP_AUDIO_FILES
+    recorder.BUFFER_DIR = root
+    recorder.shutil.disk_usage = lambda path: SimpleNamespace(free=100 * 2**30)
+    recorder._keep_segments = lambda: 2
+    recorder.KEEP_AUDIO_FILES = 2
+    try:
+        for name in ("tail_1.wav", "save_x.mkv", "list_x.txt",
+                     "buf_1.mkv", "buf_2.mkv", "buf_3.mkv",
+                     "aud_1.pcm", "aud_2.pcm", "aud_3.pcm"):
+            (root / name).write_bytes(b"x")
+        recorder._prune_buffer()
+        for name in ("tail_1.wav", "save_x.mkv", "list_x.txt",
+                     "buf_1.mkv", "aud_1.pcm"):
+            check(not (root / name).exists(), f"stale temp {name} kept")
+        for name in ("buf_3.mkv", "aud_3.pcm"):
+            check((root / name).exists(), f"newest buffer file {name} pruned")
+    finally:
+        recorder.BUFFER_DIR = original_dir
+        recorder.shutil.disk_usage = original_disk
+        recorder._keep_segments = original_keep
+        recorder.KEEP_AUDIO_FILES = original_audio
+
+
 def test_recording_room_check(root):
     import recorder
     original = recorder.shutil.disk_usage
@@ -599,7 +627,8 @@ def main():
              test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
-             test_pending_context_menu, test_recording_room_check,
+             test_pending_context_menu, test_prune_cleans_stale_temp_files,
+             test_recording_room_check,
              test_recording_path_avoids_collisions,
              test_log_rotation, test_zero_size_text,
              test_folder_open_failure_is_reported,
