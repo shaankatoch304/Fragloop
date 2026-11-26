@@ -1279,9 +1279,16 @@ class ClipRow(QWidget):
 
     def context_menu(self):
         menu = QMenu(self)
+        play = menu.addAction("Play")
+        play.setEnabled(not self.pending)
+        play.triggered.connect(self._open)
         reveal = menu.addAction("Open file location")
         reveal.setEnabled(not self.pending)
         reveal.triggered.connect(self._reveal)
+        menu.addSeparator()
+        delete = menu.addAction("Delete")
+        delete.setEnabled(not self.pending)
+        delete.triggered.connect(self._delete)
         return menu
 
     def contextMenuEvent(self, event):

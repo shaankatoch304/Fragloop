@@ -380,6 +380,11 @@ def test_pending_context_menu(root):
     os.utime(part, None)
     row = row_for(part)
     actions = row.context_menu().actions()
+    labels = [a.text() for a in actions if not a.isSeparator()]
+    check(labels == ["Play", "Open file location", "Delete"],
+          f"context menu actions {labels!r}")
+    check(not any(a.isEnabled() for a in actions if not a.isSeparator()),
+          "saving clip offered actions")
     reveal = next((a for a in actions if a.text() == "Open file location"), None)
     check(reveal is not None, "context menu lost Open file location")
     check(not reveal.isEnabled(), "saving clip offered Open file location")
@@ -390,6 +395,8 @@ def test_pending_context_menu(root):
     final.write_bytes(b"x")
     final_row = row_for(final)
     actions = final_row.context_menu().actions()
+    check(all(a.isEnabled() for a in actions if not a.isSeparator()),
+          "finished clip disabled a context action")
     reveal = next((a for a in actions if a.text() == "Open file location"), None)
     check(reveal is not None and reveal.isEnabled(),
           "finished clip lost Open file location")
