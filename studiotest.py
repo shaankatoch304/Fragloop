@@ -405,6 +405,27 @@ def test_pending_context_menu(root):
     app.processEvents()
 
 
+def test_recording_path_avoids_collisions(root):
+    import recorder
+    original = recorder.RECORD_DIR
+    recorder.RECORD_DIR = root
+    stamp = "2026-11-27_01-00-00"
+    try:
+        check(recorder._recording_path(stamp).name == f"{stamp}.mp4",
+              "first recording name changed")
+        (root / f"{stamp}.mp4").write_bytes(b"")
+        check(recorder._recording_path(stamp).name == f"{stamp}_2.mp4",
+              "existing recording would be replaced")
+        (root / f"{stamp}_2.part.mp4").write_bytes(b"")
+        check(recorder._recording_path(stamp).name == f"{stamp}_3.mp4",
+              "in-progress recording would be replaced")
+        (root / f"{stamp}_3.mkv").write_bytes(b"")
+        check(recorder._recording_path(stamp).name == f"{stamp}_4.mp4",
+              "mkv fallback would be replaced")
+    finally:
+        recorder.RECORD_DIR = original
+
+
 def test_log_rotation(root):
     import recorder
     original_log = recorder.LOG
@@ -563,7 +584,8 @@ def main():
              test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
-             test_pending_context_menu, test_log_rotation, test_zero_size_text,
+             test_pending_context_menu, test_recording_path_avoids_collisions,
+             test_log_rotation, test_zero_size_text,
              test_folder_open_failure_is_reported,
              test_preferences_escape, test_missing_clip_mtime,
              test_concat_quoting, test_explorer_select_command,

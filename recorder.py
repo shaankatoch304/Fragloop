@@ -1108,13 +1108,24 @@ def _toggle_mic(icon=None, item=None):
     _notify("Microphone off" if on else "Microphone on")
 
 
+def _recording_path(stamp):
+    """A name that will not replace an existing clip or its temp file."""
+    out = RECORD_DIR / f"{stamp}.mp4"
+    n = 2
+    while (out.exists() or out.with_suffix(".mkv").exists()
+           or out.with_name(out.stem + ".part.mp4").exists()):
+        out = RECORD_DIR / f"{stamp}_{n}.mp4"
+        n += 1
+    return out
+
+
 def _start():
     global _proc, _recording, _final, _video, _wav, _audio_thread
     global _audio_ok, _audio_from_buffer, _mic_from_buffer, _mic_manual
     global _mic_thread
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     BUFFER_DIR.mkdir(parents=True, exist_ok=True)
-    _final = RECORD_DIR / f"{stamp}.mp4"
+    _final = _recording_path(stamp)
     # Keep in-progress files out of the library folders: Studio would
     # otherwise show a growing clip and rebuild its thumbnail every 2 s.
     _video = BUFFER_DIR / f"{stamp}.video.mkv"
