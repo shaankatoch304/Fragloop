@@ -1472,10 +1472,11 @@ class Studio(QMainWindow):
     def open_settings(self):
         if self.settings_dialog is None:
             self.settings_dialog = Settings(self)
+            dlg = self.settings_dialog
+            center = self.frameGeometry().center()
+            dlg.move(center.x() - dlg.width() // 2,
+                     center.y() - dlg.height() // 2)
         dlg = self.settings_dialog
-        center = self.frameGeometry().center()
-        dlg.move(center.x() - dlg.width() // 2,
-                 center.y() - dlg.height() // 2)
         dlg.refresh_mic()  # the tray toggle can change it while hidden
         dlg.show()
         dlg.raise_()
