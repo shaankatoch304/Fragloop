@@ -35,7 +35,10 @@ Choose **More info → Run anyway**.
   when you change the Windows default output device. Pick a microphone in
   Preferences to mix it into every replay and recording; system audio is
   always included.
-- **Screenshots** — `Alt+F` saves a PNG of the display to `Videos\Captures`.
+- **Screenshots** — `Alt+F` saves a PNG of the display to
+  `Videos\Fragloop\Screenshots`.
+- **Organized captures** - replay saves and manual recordings also get their
+  own folders under `Videos\Fragloop`, so each capture type stays together.
 - **Themed clip cards** — screenshots get a warm card with a camera badge,
   replay saves a violet card with a replay arrow, and manual recordings a red
   card with a record dot; each row names its type beside the badge.
@@ -68,7 +71,9 @@ Tested on Windows 11, RTX 5070 Ti Laptop GPU, 2560x1600 @ 240 Hz.
 | `Alt+P` / `Ctrl+Alt+P` | Save the replay buffer (last 1–15 minutes) |
 | `Alt+F` / `Ctrl+Alt+F` | Save a PNG screenshot |
 
-Clips are written to `Videos\Captures`. Settings live at the top of
+Clips are written to `Videos\Fragloop`, split into `Screenshots`,
+`Replay Buffer` and `Recordings`. Older clips in `Videos\Captures` still show
+in the library. Settings live at the top of
 `recorder.py` (`RECORD_FPS`, `VIDEO_BITRATE`, `VIDEO_MAXRATE`, `SEGMENT_SECONDS`).
 The replay length is set in Preferences (1–15 minutes, second-level precision).
 

@@ -1,11 +1,15 @@
 # Changelog
 
-## 0.4.3 - 2026-11-26
+## 0.4.3 - 2026-11-27
 
 - Preferences pages now use the same near-black background as the main
   window instead of the lighter default scroll-area panel color.
 - Right-click a clip to open its folder in File Explorer with the file
   selected.
+- Screenshots, replay saves and manual recordings now go to separate
+  `Screenshots`, `Replay Buffer` and `Recordings` folders under
+  `Videos\Fragloop` instead of one shared `Captures` folder. Older clips stay
+  in `Captures` and remain in the library.
 
 ## 0.4.2 - 2026-11-26
 

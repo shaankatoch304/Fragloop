@@ -4,7 +4,8 @@ Alt+G starts/stops. Records the primary display at a constant 120 fps with
 NVENC straight from the GPU and system audio via WASAPI loopback, optionally
 mixed with a microphone chosen in Preferences. Alt+P saves the last 1-15
 minutes (5 by default) from the replay buffer. Alt+F saves a PNG screenshot.
-Files land in Videos\\Captures as .mp4 or .png.
+Files land in Videos\\Fragloop, split into Screenshots, Replay Buffer and
+Recordings.
 """
 import ctypes
 import ctypes.wintypes
@@ -37,7 +38,10 @@ APP_DIR = _app_dir()
 FFMPEG = APP_DIR / "ffmpeg.exe"
 FFPROBE = APP_DIR / "ffprobe.exe"
 LOG = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "recorder.log"
-OUT_DIR = Path(os.environ["USERPROFILE"]) / "Videos" / "Captures"
+OUT_DIR = Path(os.environ["USERPROFILE"]) / "Videos" / "Fragloop"
+SHOT_DIR = OUT_DIR / "Screenshots"
+REPLAY_DIR = OUT_DIR / "Replay Buffer"
+RECORD_DIR = OUT_DIR / "Recordings"
 
 def _display_hz():
     """Refresh rate of the primary panel (kept for logging/diagnostics)."""
@@ -160,7 +164,8 @@ REPLAY_MTIME_LAG = 0.025
 MANUAL_MTIME_LAG = 0.365
 
 LOG.parent.mkdir(parents=True, exist_ok=True)
-OUT_DIR.mkdir(parents=True, exist_ok=True)
+for _capture_dir in (SHOT_DIR, REPLAY_DIR, RECORD_DIR):
+    _capture_dir.mkdir(parents=True, exist_ok=True)
 
 _lock = threading.Lock()
 _quitting = False
@@ -947,7 +952,7 @@ def _save_replay():
         _log(f"replay save: {len(chosen)} segments, newest {chosen[-1].name}, "
              f"age {time.time() - chosen[-1].stat().st_mtime:.1f}s")
         # The save needs room for the concat and the MP4 at the same time.
-        # Filling the disk mid-save leaves a broken clip in Captures.
+        # Filling the disk mid-save leaves a broken clip in the replay folder.
         need = sum(p.stat().st_size for p in chosen) * 2 + 2 * 2**30
         try:
             free = shutil.disk_usage(OUT_DIR).free
@@ -959,11 +964,11 @@ def _save_replay():
         except OSError:
             pass
         stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        out = OUT_DIR / f"{stamp}_replay.mp4"
+        out = REPLAY_DIR / f"{stamp}_replay.mp4"
         part = out.with_name(out.stem + ".part.mp4")
         n = 2
         while out.exists() or part.exists():
-            out = OUT_DIR / f"{stamp}_replay_{n}.mp4"
+            out = REPLAY_DIR / f"{stamp}_replay_{n}.mp4"
             part = out.with_name(out.stem + ".part.mp4")
             n += 1
         # Mux beside the final name, then rename, so the library shows the
@@ -1046,11 +1051,11 @@ def _screenshot(icon=None, item=None):
 
 def _take_screenshot():
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out = OUT_DIR / f"{stamp}_screenshot.png"
+    out = SHOT_DIR / f"{stamp}_screenshot.png"
     tmp = out.with_name(out.stem + ".part.png")
     n = 2
     while out.exists() or tmp.exists():
-        out = OUT_DIR / f"{stamp}_screenshot_{n}.png"
+        out = SHOT_DIR / f"{stamp}_screenshot_{n}.png"
         tmp = out.with_name(out.stem + ".part.png")
         n += 1
     # Write beside the final name, then rename, so the library never shows a
@@ -1101,9 +1106,9 @@ def _start():
     global _mic_thread
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     BUFFER_DIR.mkdir(parents=True, exist_ok=True)
-    _final = OUT_DIR / f"{stamp}.mp4"
-    # Keep in-progress files out of Captures: Studio lists that folder and
-    # would otherwise show a growing clip and rebuild its thumbnail every 2 s.
+    _final = RECORD_DIR / f"{stamp}.mp4"
+    # Keep in-progress files out of the library folders: Studio would
+    # otherwise show a growing clip and rebuild its thumbnail every 2 s.
     _video = BUFFER_DIR / f"{stamp}.video.mkv"
     _wav = BUFFER_DIR / f"{stamp}.wav"
     # Windows rejects a second loopback capture, so reuse the buffer's audio
@@ -1347,7 +1352,7 @@ def main():
                              checked=lambda item: _buffer_on),
             pystray.MenuItem("Microphone on/off", _toggle_mic,
                              checked=lambda item: _mic_setting() is not None),
-            pystray.MenuItem("Open captures folder", lambda: os.startfile(str(OUT_DIR))),
+            pystray.MenuItem("Open Fragloop folder", lambda: os.startfile(str(OUT_DIR))),
             pystray.MenuItem("Quit", _quit),
         ),
     )

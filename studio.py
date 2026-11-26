@@ -1,7 +1,7 @@
 """Fragloop Studio - the window.
 
-Read-only for now: shows what the recorder already saved in Videos\\Captures,
-double-click a clip to play it. The recorder engine is untouched.
+Shows what the recorder saved in Videos\\Fragloop, plus older clips left in
+Videos\\Captures. Double-click a clip to play it.
 """
 import ctypes
 import math
@@ -30,7 +30,12 @@ APP_DIR = (Path(sys.executable).resolve().parent
            if getattr(sys, "frozen", False) else Path(__file__).resolve().parent)
 FFMPEG = APP_DIR / "ffmpeg.exe"
 FFPROBE = APP_DIR / "ffprobe.exe"
-OUT_DIR = Path(os.environ["USERPROFILE"]) / "Videos" / "Captures"
+OUT_DIR = Path(os.environ["USERPROFILE"]) / "Videos" / "Fragloop"
+SHOT_DIR = OUT_DIR / "Screenshots"
+REPLAY_DIR = OUT_DIR / "Replay Buffer"
+RECORD_DIR = OUT_DIR / "Recordings"
+LEGACY_DIR = Path(os.environ["USERPROFILE"]) / "Videos" / "Captures"
+CAPTURE_DIRS = (SHOT_DIR, REPLAY_DIR, RECORD_DIR, LEGACY_DIR)
 THUMB_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "thumbs"
 BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
 
@@ -849,12 +854,14 @@ class Settings(QDialog):
     def storage_page(self):
         page, lay = self.page("Storage")
         self.section(lay, "Folders")
-        self.folder_row(lay, "Saved clips", OUT_DIR)
-        self.folder_row(lay, "Replay buffer", BUFFER_DIR)
+        self.folder_row(lay, "Screenshots", SHOT_DIR)
+        self.folder_row(lay, "Replay buffer", REPLAY_DIR)
+        self.folder_row(lay, "Recordings", RECORD_DIR)
+        self.folder_row(lay, "Buffer cache", BUFFER_DIR)
         self.storage_hint = QLabel(
             f"The recorder keeps the last "
             f"{replay_length_text(self.studio.replay_seconds)} in the buffer. "
-            "Saved clips stay in Captures until you delete them.")
+            "Saved clips stay in Videos\\Fragloop until you delete them.")
         self.storage_hint.setObjectName("rowValue")
         self.storage_hint.setWordWrap(True)
         lay.addWidget(self.storage_hint)
@@ -942,7 +949,8 @@ class Settings(QDialog):
         self.studio.set_replay_seconds(value)
         self.storage_hint.setText(
             f"The recorder keeps the last {replay_length_text(value)} "
-            "in the buffer. Saved clips stay in Captures until you delete them.")
+            "in the buffer. Saved clips stay in Videos\\Fragloop until you "
+            "delete them.")
 
     def on_sort(self, index):
         self.studio.settings.setValue("sort_newest", index == 0)
@@ -1414,8 +1422,10 @@ class Studio(QMainWindow):
         foot.addWidget(ver)
         outer.addLayout(foot)
 
-        OUT_DIR.mkdir(parents=True, exist_ok=True)
-        self.watcher = QFileSystemWatcher([str(OUT_DIR)], self)
+        for folder in (SHOT_DIR, REPLAY_DIR, RECORD_DIR):
+            folder.mkdir(parents=True, exist_ok=True)
+        watch = [str(folder) for folder in CAPTURE_DIRS if folder.is_dir()]
+        self.watcher = QFileSystemWatcher(watch, self)
         self.watcher.directoryChanged.connect(self.refresh)
 
         self.timer = QTimer(self)
@@ -1504,9 +1514,12 @@ class Studio(QMainWindow):
         return super().eventFilter(obj, event)
 
     def clips(self):
-        OUT_DIR.mkdir(parents=True, exist_ok=True)
         found = []
-        for p in OUT_DIR.iterdir():
+        paths = []
+        for folder in CAPTURE_DIRS:
+            if folder.is_dir():
+                paths.extend(folder.iterdir())
+        for p in paths:
             if not p.is_file():
                 continue
             suffix = p.suffix.lower()
@@ -1529,7 +1542,7 @@ class Studio(QMainWindow):
     def refresh(self):
         files = self.clips()
         key = (self.settings.value("sort_newest", True, bool),
-               tuple((p.name, 0.0 if ".part." in p.name
+               tuple((str(p), 0.0 if ".part." in p.name
                       else p.stat().st_mtime) for p in files))
         if key == self._seen:
             return

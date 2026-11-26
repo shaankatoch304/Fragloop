@@ -169,15 +169,37 @@ def test_library_filter(root):
         def value(self, key, default=None, type=None):
             return True
 
-    original = studio.OUT_DIR
-    studio.OUT_DIR = root
+    original = studio.CAPTURE_DIRS
+    studio.CAPTURE_DIRS = (root,)
     try:
         files = studio.Studio.clips(SimpleNamespace(settings=Settings()))
     finally:
-        studio.OUT_DIR = original
+        studio.CAPTURE_DIRS = original
     got = [path.name for path in files]
     want = ["clip.mkv", "clip.mp4", "clip_replay.mp4", "shot.png"]
     check(got == want, f"library filter {got!r} != {want!r}")
+
+
+def test_library_scans_capture_folders(root):
+    folders = [root / "Screenshots", root / "Replay Buffer",
+               root / "Recordings"]
+    names = ["shot_screenshot.png", "clip_replay.mp4", "clip.mp4"]
+    for folder, name in zip(folders, names):
+        folder.mkdir()
+        (folder / name).write_bytes(b"")
+
+    class Settings:
+        def value(self, key, default=None, type=None):
+            return True
+
+    original = studio.CAPTURE_DIRS
+    studio.CAPTURE_DIRS = tuple(folders)
+    try:
+        files = studio.Studio.clips(SimpleNamespace(settings=Settings()))
+    finally:
+        studio.CAPTURE_DIRS = original
+    check({p.name for p in files} == set(names),
+          f"folders not scanned together: {[p.name for p in files]!r}")
 
 
 def test_filename_is_plain_text(root):
@@ -263,8 +285,8 @@ def test_pending_rows(root):
         def value(self, key, default=None, type=None):
             return True
 
-    original_dir = studio.OUT_DIR
-    studio.OUT_DIR = root
+    original_dir = studio.CAPTURE_DIRS
+    studio.CAPTURE_DIRS = (root,)
     try:
         files = studio.Studio.clips(SimpleNamespace(settings=Settings()))
         check(part in files, "fresh part missing from the library")
@@ -275,7 +297,7 @@ def test_pending_rows(root):
         files = studio.Studio.clips(SimpleNamespace(settings=Settings()))
         check(stale not in files, "stale part shown forever")
     finally:
-        studio.OUT_DIR = original_dir
+        studio.CAPTURE_DIRS = original_dir
 
     row.close()
     row.deleteLater()
@@ -319,15 +341,15 @@ def test_library_sort(root):
         def value(self, key, default=None, type=None):
             return self.newest if key == "sort_newest" else default
 
-    original = studio.OUT_DIR
-    studio.OUT_DIR = root
+    original = studio.CAPTURE_DIRS
+    studio.CAPTURE_DIRS = (root,)
     try:
         newest = [p.name for p in studio.Studio.clips(
             SimpleNamespace(settings=Settings(True))) if p.name in names]
         oldest = [p.name for p in studio.Studio.clips(
             SimpleNamespace(settings=Settings(False))) if p.name in names]
     finally:
-        studio.OUT_DIR = original
+        studio.CAPTURE_DIRS = original
     check(newest == ["sort_c.mp4", "sort_b.mp4", "sort_a.mp4"],
           f"newest order {newest!r}")
     check(oldest == ["sort_a.mp4", "sort_b.mp4", "sort_c.mp4"],
@@ -343,12 +365,12 @@ def test_screenshot_parts_stay_hidden(root):
         def value(self, key, default=None, type=None):
             return True
 
-    original = studio.OUT_DIR
-    studio.OUT_DIR = root
+    original = studio.CAPTURE_DIRS
+    studio.CAPTURE_DIRS = (root,)
     try:
         files = studio.Studio.clips(SimpleNamespace(settings=Settings()))
     finally:
-        studio.OUT_DIR = original
+        studio.CAPTURE_DIRS = original
     check(shot not in files, "screenshot part was listed")
 
 
@@ -400,7 +422,8 @@ def test_pcm_tail(root):
 def main():
     tests = [test_types_and_labels, test_animations,
              test_open_does_not_block, test_failed_open_reports_on_ui_thread,
-             test_library_filter, test_filename_is_plain_text,
+             test_library_filter, test_library_scans_capture_folders,
+             test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
              test_concat_quoting, test_explorer_select_command,
