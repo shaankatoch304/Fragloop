@@ -319,6 +319,14 @@ def size_text(n):
     return f"{max(1, round(n / 2**10))} KB"
 
 
+def file_mtime(path):
+    """The mtime, or 0 when the file vanished between listing and refresh."""
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
 def replay_length_text(seconds):
     minutes, sec = divmod(seconds, 60)
     if sec:
@@ -1543,7 +1551,7 @@ class Studio(QMainWindow):
         files = self.clips()
         key = (self.settings.value("sort_newest", True, bool),
                tuple((str(p), 0.0 if ".part." in p.name
-                      else p.stat().st_mtime) for p in files))
+                      else file_mtime(p)) for p in files))
         if key == self._seen:
             return
         self._seen = key
@@ -1553,8 +1561,11 @@ class Studio(QMainWindow):
             if item.widget():
                 item.widget().deleteLater()
         for path in files:
-            self.list.insertWidget(self.list.count() - 1,
-                                   ClipRow(path, self.refresh, self.confirm_delete))
+            try:
+                row = ClipRow(path, self.refresh, self.confirm_delete)
+            except OSError:
+                continue  # deleted between the scan and the row build
+            self.list.insertWidget(self.list.count() - 1, row)
 
         has = bool(files)
         self.scroll.setVisible(has)

@@ -374,6 +374,15 @@ def test_screenshot_parts_stay_hidden(root):
     check(shot not in files, "screenshot part was listed")
 
 
+def test_missing_clip_mtime(root):
+    missing = root / "already-gone.mp4"
+    check(studio.file_mtime(missing) == 0.0,
+          "a vanished clip should not break the refresh key")
+    present = root / "still-here.mp4"
+    present.write_bytes(b"")
+    check(studio.file_mtime(present) > 0, "a real clip lost its mtime")
+
+
 def test_explorer_select_command(root):
     path = Path(r"C:\Videos\Captures\clip one.mp4")
     command = studio.explorer_select_command(path)
@@ -426,6 +435,7 @@ def main():
              test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
+             test_missing_clip_mtime,
              test_concat_quoting, test_explorer_select_command,
              test_audio_args, test_pcm_tail]
     with tempfile.TemporaryDirectory() as temp:
