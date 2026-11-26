@@ -405,6 +405,12 @@ def test_pending_context_menu(root):
     app.processEvents()
 
 
+def test_zero_size_text(root):
+    check(studio.size_text(0) == "0 KB", "empty file shown as non-zero")
+    check(studio.size_text(1) == "1 KB", "tiny file should round to 1 KB")
+    check(studio.size_text(1024) == "1 KB", "1 KB formatted wrong")
+
+
 def test_folder_open_failure_is_reported(root):
     seen = []
     original_start = studio.os.startfile
@@ -536,7 +542,8 @@ def main():
              test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
-             test_pending_context_menu, test_folder_open_failure_is_reported,
+             test_pending_context_menu, test_zero_size_text,
+             test_folder_open_failure_is_reported,
              test_preferences_escape, test_missing_clip_mtime,
              test_concat_quoting, test_explorer_select_command,
              test_audio_args, test_pcm_tail]

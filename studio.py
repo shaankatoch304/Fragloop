@@ -312,6 +312,8 @@ def clock(seconds):
 
 
 def size_text(n):
+    if n <= 0:
+        return "0 KB"
     if n >= 2**30:
         return f"{n / 2**30:.2f} GB"
     if n >= 2**20:
