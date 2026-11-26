@@ -909,8 +909,14 @@ class Settings(QDialog):
 
     @staticmethod
     def open_folder(path):
-        path.mkdir(parents=True, exist_ok=True)
-        os.startfile(path)
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+            os.startfile(path)
+        except OSError as e:
+            box = QMessageBox(QMessageBox.Warning, "Could not open folder",
+                              f"{path}\n\n{e}", QMessageBox.Ok)
+            box.setTextFormat(Qt.PlainText)
+            box.exec()
 
     def about_page(self):
         page, lay = self.page("About")

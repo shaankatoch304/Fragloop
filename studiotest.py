@@ -405,6 +405,22 @@ def test_pending_context_menu(root):
     app.processEvents()
 
 
+def test_folder_open_failure_is_reported(root):
+    seen = []
+    original_start = studio.os.startfile
+    original_exec = studio.QMessageBox.exec
+    studio.os.startfile = lambda path: (_ for _ in ()).throw(
+        OSError("access denied"))
+    studio.QMessageBox.exec = lambda box: seen.append(box.text()) or 0
+    try:
+        studio.Settings.open_folder(root / "blocked")
+    finally:
+        studio.os.startfile = original_start
+        studio.QMessageBox.exec = original_exec
+    check(seen and "access denied" in seen[0],
+          f"folder failure not reported: {seen!r}")
+
+
 def test_preferences_escape(root):
     class MemorySettings:
         def __init__(self):
@@ -520,8 +536,8 @@ def main():
              test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
-             test_pending_context_menu, test_preferences_escape,
-             test_missing_clip_mtime,
+             test_pending_context_menu, test_folder_open_failure_is_reported,
+             test_preferences_escape, test_missing_clip_mtime,
              test_concat_quoting, test_explorer_select_command,
              test_audio_args, test_pcm_tail]
     with tempfile.TemporaryDirectory() as temp:
