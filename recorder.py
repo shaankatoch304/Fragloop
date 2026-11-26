@@ -43,16 +43,6 @@ SHOT_DIR = OUT_DIR / "Screenshots"
 REPLAY_DIR = OUT_DIR / "Replay Buffer"
 RECORD_DIR = OUT_DIR / "Recordings"
 
-def _display_hz():
-    """Refresh rate of the primary panel (kept for logging/diagnostics)."""
-    hdc = ctypes.windll.user32.GetDC(0)
-    try:
-        hz = int(ctypes.windll.gdi32.GetDeviceCaps(hdc, 116))  # VREFRESH
-    finally:
-        ctypes.windll.user32.ReleaseDC(0, hdc)
-    return hz if 24 <= hz <= 1000 else 240
-
-
 RECORD_FPS = 120               # constant output rate; VFR 50-240 fps footage
                                # judders in players, CFR 120 plays smooth
 VIDEO_BITRATE = "80M"          # average video rate; 7 min ≈ 4.2 GB with audio
