@@ -405,6 +405,21 @@ def test_pending_context_menu(root):
     app.processEvents()
 
 
+def test_recording_room_check(root):
+    import recorder
+    original = recorder.shutil.disk_usage
+    try:
+        recorder.shutil.disk_usage = lambda path: SimpleNamespace(free=10)
+        check(not recorder._has_room(root, 100),
+              "low disk space did not block the save")
+        recorder.shutil.disk_usage = lambda path: (_ for _ in ()).throw(
+            OSError("unavailable"))
+        check(recorder._has_room(root, 100),
+              "unknown free space should not block the save")
+    finally:
+        recorder.shutil.disk_usage = original
+
+
 def test_recording_path_avoids_collisions(root):
     import recorder
     original = recorder.RECORD_DIR
@@ -584,7 +599,8 @@ def main():
              test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
-             test_pending_context_menu, test_recording_path_avoids_collisions,
+             test_pending_context_menu, test_recording_room_check,
+             test_recording_path_avoids_collisions,
              test_log_rotation, test_zero_size_text,
              test_folder_open_failure_is_reported,
              test_preferences_escape, test_missing_clip_mtime,

@@ -75,6 +75,7 @@ MUX_TIMEOUT = 600              # seconds; video copy + AAC + faststart
 SHOT_TIMEOUT = 20              # seconds; one frame from the GPU
 STOP_TIMEOUT = 15              # seconds; let ffmpeg finalize on stop
 LOG_MAX_BYTES = 1_000_000      # rotate so the log cannot grow without bound
+RECORD_MIN_FREE = 2 * 2**30    # don't start a clip that cannot fit
 
 
 def _replay_seconds():
@@ -1119,12 +1120,24 @@ def _recording_path(stamp):
     return out
 
 
+def _has_room(folder, need):
+    """True when free space is unknown; only a known shortage blocks a save."""
+    try:
+        return shutil.disk_usage(folder).free >= need
+    except OSError:
+        return True
+
+
 def _start():
     global _proc, _recording, _final, _video, _wav, _audio_thread
     global _audio_ok, _audio_from_buffer, _mic_from_buffer, _mic_manual
     global _mic_thread
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     BUFFER_DIR.mkdir(parents=True, exist_ok=True)
+    if not _has_room(RECORD_DIR, RECORD_MIN_FREE):
+        _log("recording not started: low disk space")
+        _notify("Not enough disk space to start recording")
+        return
     _final = _recording_path(stamp)
     # Keep in-progress files out of the library folders: Studio would
     # otherwise show a growing clip and rebuild its thumbnail every 2 s.
