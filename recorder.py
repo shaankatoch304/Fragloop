@@ -66,6 +66,7 @@ SHOT_TIMEOUT = 20              # seconds; one frame from the GPU
 STOP_TIMEOUT = 15              # seconds; let ffmpeg finalize on stop
 LOG_MAX_BYTES = 1_000_000      # rotate so the log cannot grow without bound
 RECORD_MIN_FREE = 2 * 2**30    # don't start a clip that cannot fit
+TEMP_MAX_AGE = 3600            # leave active tails alone; prune crashed ones later
 
 
 def _replay_seconds():
@@ -787,6 +788,12 @@ def _prune_buffer():
             if keep:
                 files = files[:-keep]
             for p in files:
+                if not keep:
+                    try:
+                        if time.time() - p.stat().st_mtime < TEMP_MAX_AGE:
+                            continue
+                    except OSError:
+                        continue
                 try:
                     p.unlink(missing_ok=True)
                 except OSError:
@@ -1363,6 +1370,16 @@ def _quit(icon=None, item=None):
     _icon.stop()
 
 
+def _open_log(icon=None, item=None):
+    try:
+        LOG.parent.mkdir(parents=True, exist_ok=True)
+        LOG.touch(exist_ok=True)
+        os.startfile(LOG)
+    except OSError as e:
+        _log(f"could not open log: {e!r}")
+        _notify("Could not open recorder.log")
+
+
 def main():
     global _icon
     if ctypes.windll.kernel32.CreateMutexW(None, False, "FragloopTray"):
@@ -1381,6 +1398,7 @@ def main():
             pystray.MenuItem("Microphone on/off", _toggle_mic,
                              checked=lambda item: _mic_setting() is not None),
             pystray.MenuItem("Open Fragloop folder", lambda: os.startfile(str(OUT_DIR))),
+            pystray.MenuItem("Open recorder log", _open_log),
             pystray.MenuItem("Quit", _quit),
         ),
     )

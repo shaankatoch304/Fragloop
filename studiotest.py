@@ -405,6 +405,23 @@ def test_pending_context_menu(root):
     app.processEvents()
 
 
+def test_open_log(root):
+    import recorder
+    original_log = recorder.LOG
+    original_start = recorder.os.startfile
+    log = root / "nested" / "recorder.log"
+    opened = []
+    recorder.LOG = log
+    recorder.os.startfile = lambda path: opened.append(path)
+    try:
+        recorder._open_log()
+        check(opened == [log], f"log not opened: {opened!r}")
+        check(log.exists(), "log file was not created")
+    finally:
+        recorder.LOG = original_log
+        recorder.os.startfile = original_start
+
+
 def test_prune_cleans_stale_temp_files(root):
     import recorder
     original_dir = recorder.BUFFER_DIR
@@ -419,8 +436,14 @@ def test_prune_cleans_stale_temp_files(root):
         for name in ("tail_1.wav", "save_x.mkv", "list_x.txt",
                      "buf_1.mkv", "buf_2.mkv", "buf_3.mkv",
                      "aud_1.pcm", "aud_2.pcm", "aud_3.pcm"):
-            (root / name).write_bytes(b"x")
+            path = root / name
+            path.write_bytes(b"x")
+            stamp = time.time() - recorder.TEMP_MAX_AGE - 60
+            os.utime(path, (stamp, stamp))
+        fresh = root / "tail_fresh.wav"
+        fresh.write_bytes(b"x")
         recorder._prune_buffer()
+        check(fresh.exists(), "active tail was pruned")
         for name in ("tail_1.wav", "save_x.mkv", "list_x.txt",
                      "buf_1.mkv", "aud_1.pcm"):
             check(not (root / name).exists(), f"stale temp {name} kept")
@@ -627,7 +650,8 @@ def main():
              test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
-             test_pending_context_menu, test_prune_cleans_stale_temp_files,
+             test_pending_context_menu, test_open_log,
+             test_prune_cleans_stale_temp_files,
              test_recording_room_check,
              test_recording_path_avoids_collisions,
              test_log_rotation, test_zero_size_text,

@@ -10,6 +10,16 @@
   `Screenshots`, `Replay Buffer` and `Recordings` folders under
   `Videos\Fragloop` instead of one shared `Captures` folder. Older clips stay
   in `Captures` and remain in the library.
+- The clip context menu now has Play and Delete, and Open file location is
+  disabled while a clip is still saving.
+- Escape closes Preferences, and the window keeps the position you move it to.
+- A folder that cannot be opened shows a message instead of failing silently.
+- Manual recordings refuse to start when the drive has less than 2 GB free,
+  and two recordings started in the same second no longer overwrite each
+  other.
+- The recorder log rotates at 1 MB, and the tray menu can open it directly.
+- The library refresh survives a clip disappearing between scans, and empty
+  files show 0 KB instead of 1 KB.
 
 ## 0.4.2 - 2026-11-26
 
