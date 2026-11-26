@@ -74,6 +74,7 @@ CONCAT_TIMEOUT = 300           # seconds; enough for a 15-minute replay concat
 MUX_TIMEOUT = 600              # seconds; video copy + AAC + faststart
 SHOT_TIMEOUT = 20              # seconds; one frame from the GPU
 STOP_TIMEOUT = 15              # seconds; let ffmpeg finalize on stop
+LOG_MAX_BYTES = 1_000_000      # rotate so the log cannot grow without bound
 
 
 def _replay_seconds():
@@ -168,6 +169,7 @@ for _capture_dir in (SHOT_DIR, REPLAY_DIR, RECORD_DIR):
     _capture_dir.mkdir(parents=True, exist_ok=True)
 
 _lock = threading.Lock()
+_log_lock = threading.Lock()
 _quitting = False
 _icon = None
 _proc = None
@@ -227,8 +229,14 @@ def _log(text):
     # A full disk or AV lock must never take down the hotkey loop or a
     # capture thread; logging is best-effort.
     try:
-        with open(LOG, "a", encoding="utf-8") as f:
-            f.write(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S} {text}\n")
+        with _log_lock:
+            try:
+                if LOG.stat().st_size > LOG_MAX_BYTES:
+                    LOG.replace(LOG.with_name(LOG.name + ".1"))
+            except OSError:
+                pass
+            with open(LOG, "a", encoding="utf-8") as f:
+                f.write(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S} {text}\n")
     except OSError:
         pass
 

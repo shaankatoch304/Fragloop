@@ -405,6 +405,27 @@ def test_pending_context_menu(root):
     app.processEvents()
 
 
+def test_log_rotation(root):
+    import recorder
+    original_log = recorder.LOG
+    original_max = recorder.LOG_MAX_BYTES
+    log = root / "recorder.log"
+    recorder.LOG = log
+    recorder.LOG_MAX_BYTES = 100
+    try:
+        log.write_text("x" * 200, encoding="utf-8")
+        recorder._log("hello")
+        rotated = root / "recorder.log.1"
+        check(rotated.exists(), "oversized log was not rotated")
+        check(rotated.read_text(encoding="utf-8") == "x" * 200,
+              "rotation lost the old log")
+        check("hello" in log.read_text(encoding="utf-8"),
+              "new log line missing after rotation")
+    finally:
+        recorder.LOG = original_log
+        recorder.LOG_MAX_BYTES = original_max
+
+
 def test_zero_size_text(root):
     check(studio.size_text(0) == "0 KB", "empty file shown as non-zero")
     check(studio.size_text(1) == "1 KB", "tiny file should round to 1 KB")
@@ -542,7 +563,7 @@ def main():
              test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
-             test_pending_context_menu, test_zero_size_text,
+             test_pending_context_menu, test_log_rotation, test_zero_size_text,
              test_folder_open_failure_is_reported,
              test_preferences_escape, test_missing_clip_mtime,
              test_concat_quoting, test_explorer_select_command,
