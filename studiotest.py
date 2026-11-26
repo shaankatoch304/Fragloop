@@ -15,7 +15,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import QObject, Qt, Slot
 from PySide6.QtGui import QImage
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QLabel, QPushButton
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QWidget
 
 import studio
 
@@ -405,6 +405,60 @@ def test_pending_context_menu(root):
     app.processEvents()
 
 
+def test_preferences_escape(root):
+    class MemorySettings:
+        def __init__(self):
+            self.data = {}
+
+        def value(self, key, default=None, type=None):
+            value = self.data.get(key, default)
+            if type is bool:
+                return bool(value)
+            if type is int:
+                return int(value)
+            return value
+
+        def setValue(self, key, value):
+            self.data[key] = value
+
+        def sync(self):
+            pass
+
+    class Root:
+        def set_grain(self, on):
+            pass
+
+    class FakeStudio(QWidget):
+        def __init__(self):
+            super().__init__()
+            self.settings = MemorySettings()
+            self.replay_seconds = 300
+            self.root = Root()
+
+        def set_replay_seconds(self, value):
+            self.replay_seconds = value
+
+        def set_always_on_top(self, on):
+            pass
+
+        def refresh(self):
+            pass
+
+    original = studio.mic_devices
+    studio.mic_devices = lambda: []
+    try:
+        dialog = studio.Settings(FakeStudio())
+        dialog.show()
+        app.processEvents()
+        QTest.keyClick(dialog, Qt.Key_Escape)
+        app.processEvents()
+        check(not dialog.isVisible(), "Escape did not close Preferences")
+        dialog.close()
+        dialog.deleteLater()
+    finally:
+        studio.mic_devices = original
+
+
 def test_missing_clip_mtime(root):
     missing = root / "already-gone.mp4"
     check(studio.file_mtime(missing) == 0.0,
@@ -466,7 +520,8 @@ def main():
              test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
-             test_pending_context_menu, test_missing_clip_mtime,
+             test_pending_context_menu, test_preferences_escape,
+             test_missing_clip_mtime,
              test_concat_quoting, test_explorer_select_command,
              test_audio_args, test_pcm_tail]
     with tempfile.TemporaryDirectory() as temp:

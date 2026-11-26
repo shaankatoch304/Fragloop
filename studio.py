@@ -576,6 +576,8 @@ class Settings(QDialog):
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setWindowModality(Qt.NonModal)
         self.setFixedSize(760, 600)
+        escape = QShortcut(QKeySequence("Escape"), self)
+        escape.activated.connect(self.close)
 
         panel = QWidget()
         panel.setObjectName("prefs")
