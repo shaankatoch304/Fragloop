@@ -352,6 +352,13 @@ def test_screenshot_parts_stay_hidden(root):
     check(shot not in files, "screenshot part was listed")
 
 
+def test_explorer_select_command(root):
+    path = Path(r"C:\Videos\Captures\clip one.mp4")
+    command = studio.explorer_select_command(path)
+    check(command == 'explorer /select,"C:\\Videos\\Captures\\clip one.mp4"',
+          f"explorer select command {command!r}")
+
+
 def test_audio_args(root):
     import recorder
     check(recorder._audio_args(None, None) == ([], []),
@@ -396,7 +403,8 @@ def main():
              test_library_filter, test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
-             test_concat_quoting, test_audio_args, test_pcm_tail]
+             test_concat_quoting, test_explorer_select_command,
+             test_audio_args, test_pcm_tail]
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
         for test in tests:

@@ -22,7 +22,7 @@ from PySide6.QtGui import (QColor, QIcon, QImage, QImageReader, QKeySequence,
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                                QFrame, QGraphicsOpacityEffect, QHBoxLayout,
                                QLabel, QListWidget, QListWidgetItem,
-                               QMainWindow, QMessageBox, QPushButton,
+                               QMainWindow, QMenu, QMessageBox, QPushButton,
                                QScrollArea, QSlider, QStackedWidget,
                                QVBoxLayout, QWidget)
 
@@ -205,6 +205,13 @@ QScrollBar:vertical { background: transparent; width: 8px; }
 QScrollBar::handle:vertical { background: #262d39; border-radius: 4px; min-height: 30px; }
 QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
 QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
+QMenu {
+    background: #14181f; color: #e6e9f0; border: 1px solid #222835;
+    border-radius: 8px; padding: 4px;
+    font-family: "Segoe UI"; font-size: 12px;
+}
+QMenu::item { padding: 6px 18px 6px 12px; border-radius: 6px; }
+QMenu::item:selected { background: #1a1f29; color: #ffffff; }
 """
 
 
@@ -1065,6 +1072,11 @@ class Logo(QWidget):
                      logo_pixmap(round(self.width() * scale)))
 
 
+def explorer_select_command(path):
+    """Explorer command that opens the folder with the file selected."""
+    return f'explorer /select,"{path}"'
+
+
 class ClipRow(QWidget):
     open_failed = Signal(str)
 
@@ -1248,6 +1260,19 @@ class ClipRow(QWidget):
             self._on_delete()
         else:
             self.setToolTip("Could not delete - is the clip open in a player?")
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self)
+        reveal = menu.addAction("Open file location")
+        reveal.triggered.connect(self._reveal)
+        menu.exec(event.globalPos())
+        event.accept()
+
+    def _reveal(self):
+        try:
+            subprocess.Popen(explorer_select_command(self.path))
+        except Exception as e:
+            self.open_failed.emit(str(e))
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:

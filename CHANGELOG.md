@@ -4,6 +4,8 @@
 
 - Preferences pages now use the same near-black background as the main
   window instead of the lighter default scroll-area panel color.
+- Right-click a clip to open its folder in File Explorer with the file
+  selected.
 
 ## 0.4.2 - 2026-11-26
 
