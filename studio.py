@@ -1277,11 +1277,15 @@ class ClipRow(QWidget):
         else:
             self.setToolTip("Could not delete - is the clip open in a player?")
 
-    def contextMenuEvent(self, event):
+    def context_menu(self):
         menu = QMenu(self)
         reveal = menu.addAction("Open file location")
+        reveal.setEnabled(not self.pending)
         reveal.triggered.connect(self._reveal)
-        menu.exec(event.globalPos())
+        return menu
+
+    def contextMenuEvent(self, event):
+        self.context_menu().exec(event.globalPos())
         event.accept()
 
     def _reveal(self):

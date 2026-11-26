@@ -374,6 +374,30 @@ def test_screenshot_parts_stay_hidden(root):
     check(shot not in files, "screenshot part was listed")
 
 
+def test_pending_context_menu(root):
+    part = root / "2026-11-27_01-00-00_replay.part.mp4"
+    part.write_bytes(b"x")
+    os.utime(part, None)
+    row = row_for(part)
+    actions = row.context_menu().actions()
+    reveal = next((a for a in actions if a.text() == "Open file location"), None)
+    check(reveal is not None, "context menu lost Open file location")
+    check(not reveal.isEnabled(), "saving clip offered Open file location")
+    row.close()
+    row.deleteLater()
+
+    final = root / "2026-11-27_01-00-00_replay.mp4"
+    final.write_bytes(b"x")
+    final_row = row_for(final)
+    actions = final_row.context_menu().actions()
+    reveal = next((a for a in actions if a.text() == "Open file location"), None)
+    check(reveal is not None and reveal.isEnabled(),
+          "finished clip lost Open file location")
+    final_row.close()
+    final_row.deleteLater()
+    app.processEvents()
+
+
 def test_missing_clip_mtime(root):
     missing = root / "already-gone.mp4"
     check(studio.file_mtime(missing) == 0.0,
@@ -435,7 +459,7 @@ def main():
              test_filename_is_plain_text,
              test_pending_rows, test_pending_finishes, test_library_sort,
              test_screenshot_parts_stay_hidden, test_image_caps,
-             test_missing_clip_mtime,
+             test_pending_context_menu, test_missing_clip_mtime,
              test_concat_quoting, test_explorer_select_command,
              test_audio_args, test_pcm_tail]
     with tempfile.TemporaryDirectory() as temp:
