@@ -835,8 +835,10 @@ def _prune_buffer():
                 except OSError:
                     pass
     try:
-        # 80 Mbit/s is about 0.6 GB/min, so a longer buffer needs more room.
-        reserve = max(8, 2 + _replay_seconds() / 60 * 0.75) * 2**30
+        # Keep 25% headroom over the configured bitrate, so a high slider
+        # value cannot fill the disk before the buffer is pruned.
+        per_min = (_video_bitrate() + 0.192) * 0.009375  # GB/min
+        reserve = max(8, 2 + _replay_seconds() / 60 * per_min) * 2**30
         if shutil.disk_usage(BUFFER_DIR).free < reserve:
             _log("replay buffer stopped: low disk space")
             _notify("Replay buffer stopped: low disk space")
