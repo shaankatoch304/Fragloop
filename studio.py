@@ -1127,6 +1127,7 @@ class ClipRow(QWidget):
         self._opened_at = 0.0
         self._hover = 0.0
         self._press = 0.0
+        self._lift = 0
         self._wash = QWidget(self)
         self._wash.setObjectName("shotWash" if self.shot else
                                  "bufferWash" if self.buffer else "recordWash")
@@ -1288,7 +1289,9 @@ class ClipRow(QWidget):
         opacity = 0.68 + 0.32 * self._hover - 0.10 * self._press
         self._wash_fx.setOpacity(max(0.0, min(1.0, opacity)))
         lift = round(2 * self._hover - 3 * self._press)
-        self._lay.setContentsMargins(10, 10 - lift, 14, 10 + lift)
+        if lift != self._lift:
+            self._lift = lift
+            self._lay.setContentsMargins(10, 10 - lift, 14, 10 + lift)
 
     def _delete(self):
         if self.pending:
