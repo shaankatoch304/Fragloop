@@ -44,10 +44,22 @@ SHOT_DIR = OUT_DIR / "Screenshots"
 REPLAY_DIR = OUT_DIR / "Replay Buffer"
 RECORD_DIR = OUT_DIR / "Recordings"
 
-RECORD_FPS = 120               # constant output rate; VFR 50-240 fps footage
-                               # judders in players, CFR 120 plays smooth
-VIDEO_BITRATE = "80M"          # average video rate; 7 min ≈ 4.2 GB with audio
-VIDEO_MAXRATE = "110M"         # peaks for complex motion; average stays ~80
+
+def _display_hz():
+    """Current refresh rate of the primary display, or 0 if unknown."""
+    hdc = ctypes.windll.user32.GetDC(0)
+    if not hdc:
+        return 0
+    try:
+        hz = int(ctypes.windll.gdi32.GetDeviceCaps(hdc, 116))  # VREFRESH
+    finally:
+        ctypes.windll.user32.ReleaseDC(0, hdc)
+    return hz if 24 <= hz <= 500 else 0
+
+
+RECORD_FPS = 120               # fallback when the display rate cannot be read
+VIDEO_BITRATE = 80             # Mbps fallback; Preferences can set 20-200
+BITRATE_MIN, BITRATE_MAX = 20, 200
 CODEC = "hevc_nvenc"           # 10-bit HEVC: ~2x smaller than H.264 at the
                                # same quality, but needs the HEVC extension
 HOTKEY_VK = 0x47               # G
