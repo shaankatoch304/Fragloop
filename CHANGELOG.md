@@ -20,6 +20,13 @@
 - The recorder log rotates at 1 MB, and the tray menu can open it directly.
 - The library refresh survives a clip disappearing between scans, and empty
   files show 0 KB instead of 1 KB.
+- Clip hover and double-click animations are smoother: eased fades, a soft
+  press pulse, and no hover flicker when the pointer moves onto the delete
+  button.
+- Manual recordings and the replay buffer now follow the primary display's
+  current refresh rate instead of a fixed 120 fps.
+- Preferences has a 20-200 Mbps video bitrate slider with estimated one-minute
+  and buffer sizes; the buffer restarts automatically to apply a new value.
 
 ## 0.4.2 - 2026-11-26
 
