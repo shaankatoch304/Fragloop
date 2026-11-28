@@ -769,6 +769,53 @@ class Settings(QDialog):
         self.replay_hint.setText(self.replay_text(value))
         lay.addWidget(self.replay_hint)
 
+        self.section(lay, "Video")
+        row = QHBoxLayout()
+        label = QLabel("Bitrate")
+        label.setObjectName("rowLabel")
+        row.addWidget(label)
+        row.addStretch(1)
+        self.bitrate_value = QLabel()
+        self.bitrate_value.setObjectName("rowValue")
+        row.addWidget(self.bitrate_value)
+        lay.addLayout(row)
+
+        self.bitrate = QSlider(Qt.Horizontal)
+        self.bitrate.setRange(BITRATE_MIN, BITRATE_MAX)
+        self.bitrate.setSingleStep(5)
+        self.bitrate.setPageStep(10)
+        self.bitrate.setAccessibleName("Video bitrate")
+        try:
+            value = int(self.studio.settings.value("video_bitrate", 80))
+        except (TypeError, ValueError):
+            value = 80
+        value = min(BITRATE_MAX, max(BITRATE_MIN, value))
+        self.bitrate.setValue(value)
+        self.bitrate_value.setText(f"{value} Mbps")
+        self.bitrate_timer = QTimer(self)
+        self.bitrate_timer.setSingleShot(True)
+        self.bitrate_timer.setInterval(350)
+        self.bitrate_timer.timeout.connect(self.save_bitrate)
+        self.bitrate.valueChanged.connect(self.on_bitrate)
+        self.bitrate.sliderReleased.connect(self.save_bitrate)
+        lay.addWidget(self.bitrate)
+
+        ends = QHBoxLayout()
+        low = QLabel(f"{BITRATE_MIN} Mbps")
+        low.setObjectName("rowValue")
+        high = QLabel(f"{BITRATE_MAX} Mbps")
+        high.setObjectName("rowValue")
+        ends.addWidget(low)
+        ends.addStretch(1)
+        ends.addWidget(high)
+        lay.addLayout(ends)
+
+        self.bitrate_hint = QLabel(bitrate_estimate_text(
+            value, self.studio.replay_seconds))
+        self.bitrate_hint.setObjectName("rowValue")
+        self.bitrate_hint.setWordWrap(True)
+        lay.addWidget(self.bitrate_hint)
+
         self.section(lay, "Microphone")
         row = QHBoxLayout()
         label = QLabel("Input")
