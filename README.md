@@ -27,10 +27,14 @@ Choose **More info → Run anyway**.
 
 - **Direct GPU pipeline** — Desktop Duplication (`ddagrab`) feeds `hevc_nvenc`
   without a CPU frame copy, so fast games stay smooth.
-- **Constant 120 fps** — CFR output avoids the judder VFR capture produces in
-  players, even on a 240 Hz panel.
+- **Smooth CFR capture** — manual clips and the replay buffer follow the
+  display's current refresh rate. CFR output avoids the judder VFR capture
+  produces in players.
 - **Configurable replay buffer** — 1 to 15 minutes with second-level precision
   (5 minutes by default), two-second segments, saved in seconds.
+- **Bitrate slider** — set video quality from 20 to 200 Mbps in Preferences.
+  The window shows the estimated one-minute size for both the replay buffer and
+  manual clips, plus the total for the current buffer length.
 - **System audio and optional mic** — WASAPI loopback switches automatically
   when you change the Windows default output device. Pick a microphone in
   Preferences to mix it into every replay and recording; system audio is
@@ -56,10 +60,10 @@ Choose **More info → Run anyway**.
 - NVIDIA GPU with NVENC (Turing or newer recommended)
 - Release builds include ffmpeg. Source builds need ffmpeg 7 or newer
   (`ffmpeg.exe` and `ffprobe.exe`) next to `Fragloop.exe`
-- Free disk space: the replay buffer uses up to ~4 GB at the default five
-  minutes (~9 GB at 15 minutes), a saved five-minute replay is ~2.3 GB typical
-  (~3.4 GB at the cap), and a seven-minute manual clip stays under 5 GB. Saving
-  needs room for the temporary concat as well (~2x briefly).
+- Free disk space: at the default 80 Mbps, allow about 0.6 GB per minute — the
+  five-minute buffer needs roughly 3 GB (9 GB at 15 minutes). Saving needs room
+  for the temporary concat as well (~2x briefly). A higher bitrate scales both
+  numbers up; the Preferences window shows the estimate for the current value.
 
 Tested on Windows 11, RTX 5070 Ti Laptop GPU, 2560x1600 @ 240 Hz.
 
@@ -73,17 +77,19 @@ Tested on Windows 11, RTX 5070 Ti Laptop GPU, 2560x1600 @ 240 Hz.
 
 Clips are written to `Videos\Fragloop`, split into `Screenshots`,
 `Replay Buffer` and `Recordings`. Older clips in `Videos\Captures` still show
-in the library. Settings live at the top of
-`recorder.py` (`RECORD_FPS`, `VIDEO_BITRATE`, `VIDEO_MAXRATE`, `SEGMENT_SECONDS`).
-The replay length is set in Preferences (1–15 minutes, second-level precision).
+in the library. The replay length (1–15 minutes) and video bitrate
+(20–200 Mbps) are set in Preferences. `RECORD_FPS`, `VIDEO_BITRATE` and
+`SEGMENT_SECONDS` at the top of `recorder.py` are fallbacks/defaults;
+`RECORD_FPS` is used only when Windows does not report the display rate.
 
 ## How it works
 
 1. `ddagrab` captures the display on the GPU and duplicates frames to a
-   constant 120 fps.
-2. `hevc_nvenc` encodes 10-bit HEVC at an 80 Mbit/s average (110 Mbit/s peaks) into two-second Matroska
-   segments tagged with forced IDR frames, so the replay buffer can be
-   concatenated without re-encoding.
+   constant rate matching the display's current refresh rate.
+2. `hevc_nvenc` encodes 10-bit HEVC at the Preferences bitrate (80 Mbit/s
+   average and 110 Mbit/s peaks by default) into two-second Matroska segments
+   tagged with forced IDR frames, so the replay buffer can be concatenated
+   without re-encoding.
 3. WASAPI loopback writes 48 kHz stereo PCM into rotating five-minute chunks,
    padded against the wall clock so silence does not shift the timeline.
 4. A replay save concatenates the newest segments for the chosen length, trims
