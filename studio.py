@@ -870,7 +870,7 @@ class Settings(QDialog):
     @staticmethod
     def replay_text(seconds):
         return (f"Alt+P saves the last {replay_length_text(seconds)}. "
-                "Longer buffers use more disk; 15 minutes is about 9 GB.")
+                "Longer buffers use more disk.")
 
     def appearance_page(self):
         page, lay = self.page("Appearance")
