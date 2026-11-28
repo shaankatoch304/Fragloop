@@ -42,6 +42,8 @@ BUFFER_DIR = Path(os.environ["LOCALAPPDATA"]) / "Fragloop" / "buffer"
 
 THUMB_W, THUMB_H = 148, 84
 APP_VERSION = "0.4.3"
+BITRATE_MIN, BITRATE_MAX = 20, 200
+AUDIO_MBPS = 0.192
 PROBE_TIMEOUT = 10          # seconds; a crafted file must not hang the window
 MAX_IMAGE_BYTES = 128 * 2**20
 MAX_IMAGE_PIXELS = 40_000_000
@@ -340,6 +342,20 @@ def replay_length_text(seconds):
 def replay_label(seconds):
     minutes, sec = divmod(seconds, 60)
     return f"{minutes}:{sec:02d}" if sec else f"{minutes} min"
+
+
+def minute_bytes(mbps):
+    """One minute of video plus the AAC track, in bytes."""
+    return (mbps + AUDIO_MBPS) * 1_000_000 / 8 * 60
+
+
+def bitrate_estimate_text(mbps, replay_seconds):
+    per_min = minute_bytes(mbps)
+    buffer = per_min * replay_seconds / 60
+    return (f"Replay buffer: ~{size_text(per_min)} per minute "
+            f"({replay_length_text(replay_seconds)} ≈ {size_text(buffer)}).\n"
+            f"Manual recording: ~{size_text(per_min)} per minute.\n"
+            "Estimates use the target bitrate; simple scenes use less.")
 
 
 def mic_devices():
