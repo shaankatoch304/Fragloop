@@ -849,6 +849,8 @@ def _buffer_supervisor():
     global _buffer_proc, _buffer_on
     fails = 0
     while not _buffer_stop.is_set():
+        fps = _display_hz() or RECORD_FPS
+        mbps = _video_bitrate()
         cmd = [
             str(FFMPEG), "-hide_banner", "-loglevel", "warning", "-y",
             "-nostdin",
@@ -857,17 +859,13 @@ def _buffer_supervisor():
             # flowing on a static screen, and we skip the hwdownload →
             # software fps → NVENC round-trip (2 GB/s through RAM) that
             # made the encoder fall seconds behind during real gameplay.
-            f"ddagrab=output_idx=0:framerate={RECORD_FPS}:dup_frames=true",
-            "-c:v", CODEC, "-preset", "p1", "-tune", "hq",
-            "-profile:v", "main10", "-highbitdepth", "1",
-            "-rc", "vbr", "-b:v", VIDEO_BITRATE,
-            "-maxrate", VIDEO_MAXRATE, "-bufsize", "220M",
-            "-bf", "0",
+            f"ddagrab=output_idx=0:framerate={fps}:dup_frames=true",
+            *_video_args(mbps),
             # Keyframe every 2 s of media time, not every 60 frames: at
             # 150-240 fps a frame-count GOP is 0.25-0.4 s and spends a big
             # slice of the bitrate on keyframes. nvenc silently ignores
             # -force_key_frames unless -forced-idr is set too.
-            "-g", str(RECORD_FPS * SEGMENT_SECONDS),
+            "-g", str(fps * SEGMENT_SECONDS),
             "-forced-idr", "1",
             "-force_key_frames", f"expr:gte(t,n_forced*{SEGMENT_SECONDS})",
             "-fps_mode", "cfr",
@@ -891,10 +889,14 @@ def _buffer_supervisor():
             if log:
                 log.close()  # the child keeps its own handle
         started = time.time()
-        _log("buffer ffmpeg started")
+        _log(f"buffer ffmpeg started at {fps} fps, {mbps} Mbps")
+        changed = False
         while _buffer_proc.poll() is None and not _buffer_stop.is_set():
             time.sleep(1)
             _prune_buffer()
+            if _video_bitrate() != mbps:
+                changed = True
+                break
         if _buffer_proc.poll() is None:
             _buffer_proc.terminate()
             try:
