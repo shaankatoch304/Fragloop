@@ -696,9 +696,10 @@ def main():
              test_recording_path_avoids_collisions,
              test_log_rotation, test_zero_size_text,
              test_folder_open_failure_is_reported,
-             test_preferences_escape, test_missing_clip_mtime,
+             test_bitrate_estimate, test_preferences_escape,
+             test_missing_clip_mtime,
              test_concat_quoting, test_explorer_select_command,
-             test_audio_args, test_pcm_tail]
+             test_video_args, test_audio_args, test_pcm_tail]
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
         for test in tests:
