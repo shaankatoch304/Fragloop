@@ -547,6 +547,15 @@ def test_folder_open_failure_is_reported(root):
           f"folder failure not reported: {seen!r}")
 
 
+def test_bitrate_estimate(root):
+    text = studio.bitrate_estimate_text(80, 300)
+    check("~574 MB per minute" in text, f"80 Mbps estimate {text!r}")
+    check("2.80 GB" in text, f"5 min buffer estimate {text!r}")
+    check("Manual recording" in text, f"missing manual estimate {text!r}")
+    text = studio.bitrate_estimate_text(200, 60)
+    check("~1.40 GB per minute" in text, f"200 Mbps estimate {text!r}")
+
+
 def test_preferences_escape(root):
     class MemorySettings:
         def __init__(self):
