@@ -601,6 +601,15 @@ def test_preferences_escape(root):
         dialog = studio.Settings(FakeStudio())
         dialog.show()
         app.processEvents()
+        dialog.bitrate.setValue(120)
+        dialog.bitrate_timer.stop()
+        dialog.save_bitrate()
+        check(dialog.bitrate_value.text() == "120 Mbps",
+              f"bitrate label {dialog.bitrate_value.text()!r}")
+        check(dialog.studio.settings.data.get("video_bitrate") == 120,
+              "bitrate slider did not save")
+        check("Manual recording" in dialog.bitrate_hint.text(),
+              "bitrate estimate missing from Preferences")
         QTest.keyClick(dialog, Qt.Key_Escape)
         app.processEvents()
         check(not dialog.isVisible(), "Escape did not close Preferences")
