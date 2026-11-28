@@ -1,9 +1,10 @@
 """Fragloop - tiny tray recorder.
 
-Alt+G starts/stops. Records the primary display at a constant 120 fps with
-NVENC straight from the GPU and system audio via WASAPI loopback, optionally
-mixed with a microphone chosen in Preferences. Alt+P saves the last 1-15
-minutes (5 by default) from the replay buffer. Alt+F saves a PNG screenshot.
+Alt+G starts/stops. Records the primary display at its current refresh rate
+with NVENC straight from the GPU and system audio via WASAPI loopback,
+optionally mixed with a microphone chosen in Preferences. Alt+P saves the last
+1-15 minutes (5 by default) from the replay buffer. Alt+F saves a PNG
+screenshot.
 Files land in Videos\\Fragloop, split into Screenshots, Replay Buffer and
 Recordings.
 """
