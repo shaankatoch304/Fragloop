@@ -905,6 +905,10 @@ def _buffer_supervisor():
                 _buffer_proc.kill()
         if _buffer_stop.is_set():
             break
+        if changed:
+            _log("video bitrate changed; restarting buffer")
+            fails = 0
+            continue
         # A crash right after start means the pipeline is broken (missing
         # NVENC session, bad folder permission); don't spin forever silently.
         fails = fails + 1 if time.time() - started < 10 else 0
