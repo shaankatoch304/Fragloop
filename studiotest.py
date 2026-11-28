@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QObject, Qt, Slot
+from PySide6.QtCore import QAbstractAnimation, QEvent, QObject, Qt, Slot
 from PySide6.QtGui import QImage
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QWidget
@@ -85,12 +85,24 @@ def test_types_and_labels(root):
 def test_animations(root):
     row = row_for(root / "shot.png")
     row._animate_hover(1.0)
-    check(wait_for(lambda: row._hover > 0.99), "hover-in did not finish")
+    check(wait_for(lambda: row._hover_anim.state() == QAbstractAnimation.Stopped),
+          "hover-in did not finish")
+    check(row._hover > 0.99, f"hover value {row._hover:.3f}")
     check(abs(row._wash_fx.opacity() - 1.0) < 0.01,
           f"hover opacity {row._wash_fx.opacity():.2f}")
     check(row._lay.contentsMargins().top() == 8,
           f"hover lift {row._lay.contentsMargins().top()}")
-    row._animate_hover(0.0)
+    row._animate_hover(1.0)
+    check(row._hover_anim.state() == QAbstractAnimation.Stopped,
+          "hover restarted while already at target")
+    row._pointer_inside = lambda: True
+    row.leaveEvent(QEvent(QEvent.Leave))
+    check(row._hover_anim.state() == QAbstractAnimation.Stopped,
+          "leave inside the row restarted hover-out")
+    row._pointer_inside = lambda: False
+    row.leaveEvent(QEvent(QEvent.Leave))
+    check(row._hover_anim.state() == QAbstractAnimation.Running,
+          "leave outside the row did not start hover-out")
     check(wait_for(lambda: row._hover < 0.01), "hover-out did not finish")
     check(abs(row._wash_fx.opacity() - 0.68) < 0.01,
           f"rest opacity {row._wash_fx.opacity():.2f}")
