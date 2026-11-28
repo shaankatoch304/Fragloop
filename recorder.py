@@ -95,6 +95,29 @@ def _replay_seconds():
         return REPLAY_SECONDS
 
 
+def _video_bitrate():
+    """Read the Preferences bitrate slider, clamped to its 20-200 Mbps range."""
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Fragloop\Studio") as key:
+            value, _ = winreg.QueryValueEx(key, "video_bitrate")
+        return min(BITRATE_MAX, max(BITRATE_MIN, int(value)))
+    except (OSError, ValueError, TypeError):
+        return VIDEO_BITRATE
+
+
+def _video_args(mbps):
+    """NVENC settings shared by the replay buffer and manual recordings."""
+    return [
+        "-c:v", CODEC, "-preset", "p1", "-tune", "hq",
+        "-profile:v", "main10", "-highbitdepth", "1",
+        "-rc", "vbr", "-b:v", f"{mbps}M",
+        "-maxrate", f"{round(mbps * 1.375)}M",
+        "-bufsize", f"{round(mbps * 2.75)}M",
+        "-bf", "0",
+    ]
+
+
 def _mic_setting():
     """None when the mic is off, else the chosen device name ('' = default)."""
     try:
