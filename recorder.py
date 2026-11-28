@@ -1178,6 +1178,8 @@ def _start():
     global _audio_ok, _audio_from_buffer, _mic_from_buffer, _mic_manual
     global _mic_thread
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    fps = _display_hz() or RECORD_FPS
+    mbps = _video_bitrate()
     BUFFER_DIR.mkdir(parents=True, exist_ok=True)
     if not _has_room(RECORD_DIR, RECORD_MIN_FREE):
         _log("recording not started: low disk space")
@@ -1212,13 +1214,9 @@ def _start():
         str(FFMPEG), "-hide_banner", "-loglevel", "error", "-y",
         "-f", "lavfi", "-i",
         # Same on-GPU pipeline as the replay buffer; see _buffer_supervisor.
-        f"ddagrab=output_idx=0:framerate={RECORD_FPS}:dup_frames=true",
-        "-c:v", CODEC, "-preset", "p1", "-tune", "hq",
-        "-profile:v", "main10", "-highbitdepth", "1",
-        "-rc", "vbr", "-b:v", VIDEO_BITRATE,
-        "-maxrate", VIDEO_MAXRATE, "-bufsize", "220M",
-        "-bf", "0",
-        "-g", str(RECORD_FPS * 2),
+        f"ddagrab=output_idx=0:framerate={fps}:dup_frames=true",
+        *_video_args(mbps),
+        "-g", str(fps * 2),
         "-forced-idr", "1",
         "-force_key_frames", "expr:gte(t,n_forced*2)",
         "-fps_mode", "cfr",
@@ -1228,7 +1226,7 @@ def _start():
                              stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL,
                              creationflags=subprocess.CREATE_NO_WINDOW)
-    _log(f"recording started: {_final.name}")
+    _log(f"recording started: {_final.name} at {fps} fps, {mbps} Mbps")
     _recording = True
     threading.Thread(target=_watch_recording, args=(_proc,), daemon=True).start()
     if _icon:
