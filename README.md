@@ -5,10 +5,10 @@ from 1 to 15 minutes.
 
 ![Fragloop Studio](docs/screenshot.png)
 
-Fragloop records your display at a constant 120 fps straight from the GPU and
-keeps a rolling buffer (5 minutes by default, up to 15). Press `Alt+P` and the
-buffer is saved as an MP4 — no need to have been recording. `Alt+G` records
-manually, and `Alt+F` saves a PNG screenshot.
+Fragloop records at your display's refresh rate straight from the GPU and keeps
+a rolling buffer (5 minutes by default, up to 15). Press `Alt+P` and the buffer
+is saved as an MP4 — no need to have been recording. `Alt+G` records manually,
+and `Alt+F` saves a PNG screenshot.
 
 ## Download
 
