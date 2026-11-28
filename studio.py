@@ -17,8 +17,9 @@ from pathlib import Path
 from PySide6.QtCore import (QByteArray, QEasingCurve, QEvent,
                             QFileSystemWatcher, QPointF, QRectF, QSettings,
                             QSize, Signal, Qt, QTimer, QVariantAnimation)
-from PySide6.QtGui import (QColor, QIcon, QImage, QImageReader, QKeySequence,
-                           QPainter, QPainterPath, QPen, QPixmap, QShortcut)
+from PySide6.QtGui import (QColor, QCursor, QIcon, QImage, QImageReader,
+                           QKeySequence, QPainter, QPainterPath, QPen, QPixmap,
+                           QShortcut)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                                QFrame, QGraphicsOpacityEffect, QHBoxLayout,
                                QLabel, QListWidget, QListWidgetItem,
@@ -1139,12 +1140,11 @@ class ClipRow(QWidget):
         self._hover_anim = QVariantAnimation(self)
         self._hover_anim.valueChanged.connect(self._set_hover)
         self._press_anim = QVariantAnimation(self)
-        self._press_anim.setDuration(220)
-        self._press_anim.setEasingCurve(QEasingCurve.OutCubic)
-        self._press_anim.setKeyValueAt(0.0, 0.0)
-        self._press_anim.setKeyValueAt(0.3, 1.0)
-        self._press_anim.setKeyValueAt(1.0, 0.0)
-        self._press_anim.valueChanged.connect(self._set_press)
+        self._press_anim.setDuration(200)
+        self._press_anim.setEasingCurve(QEasingCurve.Linear)
+        self._press_anim.setStartValue(0.0)
+        self._press_anim.setEndValue(1.0)
+        self._press_anim.valueChanged.connect(self._press_tick)
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(10, 10, 14, 10)
@@ -1250,20 +1250,33 @@ class ClipRow(QWidget):
         super().enterEvent(event)
 
     def leaveEvent(self, event):
+        # Moving onto the delete button sends the row a leave event; keep the
+        # hover state while the pointer is still inside the row.
+        if self._pointer_inside():
+            return
         self._animate_hover(0.0)
         super().leaveEvent(event)
 
+    def _pointer_inside(self):
+        return self.rect().contains(self.mapFromGlobal(QCursor.pos()))
+
     def _animate_hover(self, target):
+        if abs(self._hover - target) < 0.001:
+            return
         self._hover_anim.stop()
         self._hover_anim.setStartValue(self._hover)
         self._hover_anim.setEndValue(target)
-        self._hover_anim.setDuration(160 if target else 220)
-        self._hover_anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._hover_anim.setDuration(180 if target else 240)
+        self._hover_anim.setEasingCurve(QEasingCurve.OutQuart)
         self._hover_anim.start()
 
     def _set_hover(self, value):
         self._hover = float(value)
         self._apply_visuals()
+
+    def _press_tick(self, value):
+        # Sine pulse: eases in and out instead of snapping to the peak.
+        self._set_press(math.sin(math.pi * float(value)))
 
     def _set_press(self, value):
         self._press = float(value)
