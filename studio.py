@@ -1023,9 +1023,22 @@ class Settings(QDialog):
         self.studio.root.set_alpha(value)
         self.studio.settings.setValue("opacity", value)
 
+    def on_bitrate(self, value):
+        self.bitrate_value.setText(f"{value} Mbps")
+        self.bitrate_hint.setText(bitrate_estimate_text(
+            value, self.studio.replay_seconds))
+        self.bitrate_timer.start()
+
+    def save_bitrate(self):
+        self.bitrate_timer.stop()
+        self.studio.settings.setValue("video_bitrate", self.bitrate.value())
+        self.studio.settings.sync()      # the engine reads this live
+
     def on_replay_seconds(self, value):
         self.replay_value.setText(replay_label(value))
         self.replay_hint.setText(self.replay_text(value))
+        self.bitrate_hint.setText(bitrate_estimate_text(
+            self.bitrate.value(), value))
         self.studio.settings.setValue("replay_seconds", value)
         self.studio.settings.sync()      # the engine reads this live
         self.studio.set_replay_seconds(value)
