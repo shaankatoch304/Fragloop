@@ -635,6 +635,16 @@ def test_explorer_select_command(root):
           f"explorer select command {command!r}")
 
 
+def test_video_args(root):
+    import recorder
+    args = recorder._video_args(120)
+    check(args[args.index("-b:v") + 1] == "120M", f"bitrate args {args!r}")
+    check(args[args.index("-maxrate") + 1] == "165M",
+          f"maxrate args {args!r}")
+    check(args[args.index("-bufsize") + 1] == "330M",
+          f"bufsize args {args!r}")
+
+
 def test_audio_args(root):
     import recorder
     check(recorder._audio_args(None, None) == ([], []),
